@@ -174,17 +174,30 @@ export const Grid = () => {
       {/* Mobile Grid */}
       <div className="block md:hidden mb-20">
         <div className="relative">
-          <div className="overflow-x-auto px-4">
-            <div className="grid grid-cols-3 grid-rows-2 auto-cols-max gap-2 pb-4" 
-                 style={{ width: 'max-content' }}>
-              {filteredSpots.map((spot) => (
-                <GridSpot 
-                  key={spot.id} 
-                  spot={spot} 
-                  onClick={() => setSelectedSpot(spot.id)}
-                  className="w-[120px]" 
-                />
-              ))}
+          <div className="overflow-x-auto px-4 w-full">
+            <div className="grid grid-rows-2 auto-cols-[120px] gap-2 pb-4" 
+                 style={{ 
+                   gridTemplateColumns: `repeat(${Math.ceil(filteredSpots.length / 2)}, 120px)`,
+                   width: 'max-content'
+                 }}>
+              {filteredSpots.map((spot, index) => {
+                // Calculate row and column position
+                const row = index % 2;
+                const col = Math.floor(index / 2);
+                
+                return (
+                  <GridSpot 
+                    key={spot.id} 
+                    spot={spot} 
+                    onClick={() => setSelectedSpot(spot.id)}
+                    className="w-[120px]"
+                    style={{
+                      gridRow: row + 1,
+                      gridColumn: col + 1
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
           {showLeftArrow && (
@@ -287,7 +300,8 @@ export const Grid = () => {
           spotId={selectedSpot}
           onClose={() => setSelectedSpot(null)}
           isConnected={isConnected}
-          currentPrice={0}
+          currentPrice={spots.find(s => s.id === selectedSpot)?.currentPrice || 0}
+          isEmpty={!spots.find(s => s.id === selectedSpot)?.project}
         />
       )}
     </div>

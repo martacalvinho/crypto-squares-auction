@@ -16,30 +16,32 @@ export function getStartingPrice(): number {
 }
 
 /**
- * Calculates the minimum bid required based on the current price
- * For bids below 1 SOL: adds 0.005 SOL
- * For bids above 1 SOL: adds 10% of the current price
+ * Calculates the minimum bid required based on the current price and spot status
  * @param currentPrice Current price in SOL
+ * @param isEmpty Whether the spot is empty
  * @returns Minimum bid amount in SOL
  */
-export function getMinimumBid(currentPrice: number): number {
-    if (currentPrice >= 1) {
-        // Above 1 SOL: new minimum is current price + 10%
-        return currentPrice * 1.1;
-    } else {
-        // Below 1 SOL: new minimum is current price + 0.005 SOL
-        return currentPrice + 0.005;
+export function getMinimumBid(currentPrice: number, isEmpty: boolean): number {
+    // For empty spots, always start at 0.005 SOL
+    if (isEmpty) {
+        return getStartingPrice();
     }
+
+    // For spots under 1 SOL: current price + 0.05 SOL
+    if (currentPrice < 1) {
+        return currentPrice + 0.05;
+    }
+
+    // For spots over 1 SOL: current price + 10%
+    return currentPrice * 1.1;
 }
 
 /**
  * Formats a SOL amount to a consistent string format
  * @param amount Amount in SOL
- * @returns Formatted string with 4 decimal places
+ * @returns Formatted string with 3 decimal places
  */
 export function formatSol(amount: number | undefined | null): string {
-    if (typeof amount !== 'number' || isNaN(amount)) {
-        return '0.0000';
-    }
-    return amount.toFixed(4);
+    if (amount === undefined || amount === null) return '0';
+    return Number(amount.toFixed(3)).toString();
 }

@@ -42,6 +42,22 @@
 }
 
 @media (max-width: 768px) {
+  /* Grid styles */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .grid {
+    grid-template-columns: repeat(3, minmax(100px, 1fr));
+    gap: 8px;
+  }
+
   /* Removed unnecessary toggle styles */
   .mobile-filters-toggle {
     display: none;

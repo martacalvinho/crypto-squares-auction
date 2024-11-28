@@ -20,9 +20,10 @@ interface SpotModalProps {
   onClose: () => void;
   isConnected: boolean;
   currentPrice: number;
+  isEmpty: boolean;
 }
 
-export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotModalProps) => {
+export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty }: SpotModalProps) => {
   const { publicKey, signTransaction, connected, connecting, select } = useWallet();
   const [projectName, setProjectName] = useState("");
   const [projectLink, setProjectLink] = useState("");
@@ -91,8 +92,13 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
     reader.readAsDataURL(file);
   };
 
-  const minimumBid = getMinimumBid(currentPrice);
+  const minimumBid = getMinimumBid(currentPrice, isEmpty);
   const purchaseAmount = Number(customPrice) || minimumBid;
+
+  const modalTitle = isEmpty ? "Buy Empty Spot" : "Steal This Spot";
+  const modalDescription = isEmpty 
+    ? `Buy this spot for ${formatSol(minimumBid)} SOL`
+    : `Current spot price: ${formatSol(currentPrice)} SOL`;
 
   const handleSubmit = async () => {
     if (!connected || !publicKey || !signTransaction) {
@@ -278,7 +284,8 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
       <Dialog open onOpenChange={() => onClose()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Claim Spot #{spotId + 1}</DialogTitle>
+            <DialogTitle>{modalTitle}</DialogTitle>
+            <p className="text-sm text-muted-foreground">{modalDescription}</p>
           </DialogHeader>
           <div className="space-y-6 py-4">
             <div className="space-y-2">
@@ -292,7 +299,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
             <div className="space-y-2">
               <Label>Project Link *</Label>
               <Input
-                placeholder="https://..."
+                placeholder="https://... "
                 value={projectLink}
                 onChange={(e) => setProjectLink(e.target.value)}
               />

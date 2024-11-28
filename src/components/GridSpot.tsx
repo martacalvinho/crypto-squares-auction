@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
+import { Button } from "./ui/button";
 
 const formatSol = (value: number) => {
-  // Round to 3 decimal places and ensure no more than 3 decimal places
   return Number(value.toFixed(3)).toString();
 };
 
@@ -10,7 +10,6 @@ interface SpotProps {
   spot: {
     id: number;
     currentPrice: number;
-    currentOwner: string | null;
     project: {
       name: string;
       logo?: string;
@@ -19,21 +18,21 @@ interface SpotProps {
     walletAddress: string | null;
   };
   onClick: () => void;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-export const GridSpot = ({ spot, onClick }: SpotProps) => {
-  const nextMinimumBid = spot.currentPrice >= 1 
-    ? Number((spot.currentPrice * 1.1).toFixed(3))  // 10% increase for spots ≥1 SOL
-    : Number((spot.currentPrice + 0.05).toFixed(3)); // 0.05 SOL increase for spots <1 SOL
-
+export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) => {
   return (
     <div
       onClick={onClick}
       className={cn(
+        className,
         "relative aspect-square border border-crypto-primary/20 cursor-pointer transition-all duration-300",
         "hover:border-crypto-primary hover:shadow-lg hover:shadow-crypto-primary/20",
         "flex flex-col items-center justify-center p-3 text-center"
       )}
+      style={style}
     >
       <div className="absolute top-2 left-2 text-xs opacity-70 z-10 bg-[#0D0F1A] px-1 rounded">
         #{spot.id + 1}
@@ -72,15 +71,35 @@ export const GridSpot = ({ spot, onClick }: SpotProps) => {
               {spot.project.name}
             </div>
           )}
-          <div className="text-sm font-bold">{formatSol(spot.currentPrice)} SOL</div>
-          <div className="text-xs opacity-70">min. buy: {formatSol(nextMinimumBid)} SOL</div>
+          <div className="text-sm font-bold mb-2">{formatSol(spot.currentPrice)} SOL</div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="w-full bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            Steal
+          </Button>
         </>
       ) : (
         <>
           <Plus className="w-10 h-10 opacity-50 mb-2" />
-          <div className="text-sm opacity-70">Available</div>
-          <div className="text-sm font-bold">{formatSol(spot.currentPrice)} SOL</div>
-          <div className="text-xs opacity-70">min. buy: {formatSol(nextMinimumBid)} SOL</div>
+          <div className="text-sm opacity-70 mb-1">Available</div>
+          <div className="text-sm font-bold mb-2">{formatSol(spot.currentPrice)} SOL</div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="w-full bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            Buy
+          </Button>
         </>
       )}
     </div>
