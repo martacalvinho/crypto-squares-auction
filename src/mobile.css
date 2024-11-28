@@ -1,0 +1,30 @@
+/* Mobile-specific styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset any inherited styles */
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hide all desktop-related elements */
+.grid-spot,
+.glass-effect,
+.hero-gradient,
+.hero-glow,
+[class*="desktop-"],
+[id*="desktop-"] {
+  display: none !important;
+}
+
+/* Mobile-specific wallet button styles */
+.wallet-button-wrapper .wallet-adapter-button {
+  height: 36px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+  background: linear-gradient(to right, rgb(147, 51, 234), rgb(79, 70, 229)) !important;
+  border: none !important;
+}

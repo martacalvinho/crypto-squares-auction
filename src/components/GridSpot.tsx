@@ -29,7 +29,7 @@ export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) =>
       className={cn(
         className,
         "relative aspect-square border cursor-pointer transition-all duration-300",
-        spot.project ? "border-2 border-crypto-primary" : "border border-crypto-primary/20 hover:border-crypto-primary",
+        spot.project ? "border-2 border-crypto-primary/60" : "border border-crypto-primary/20 hover:border-crypto-primary",
         "hover:shadow-lg hover:shadow-crypto-primary/20",
         "flex flex-col items-center justify-between p-3 text-center h-[180px]"
       )}

@@ -1,0 +1,8 @@
+@media (max-width: 767px) {
+  .desktop-component {
+    display: none !important;
+  }
+  .mobile-component {
+    display: block !important;
+  }
+}
