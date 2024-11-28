@@ -9,6 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 import { ProjectSubmission, submitBoostProject, submitAdditionalTime } from './BoostUtils';
 import type { BoostSlot } from './Boost';
 import { formatUrl } from "@/lib/url";
+import { ImagePlus } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { useMobile } from "@/hooks/use-mobile";
 
 interface BoostSubmissionFormProps {
   onSuccess?: () => void;
@@ -20,6 +23,10 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
   const wallet = useWallet();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useMobile();
   
   // Calculate remaining available time if this is an additional contribution
   const currentBoostHours = existingSlot
@@ -37,6 +44,53 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
     chartLink: existingSlot?.chart_link || '',
     totalContributions: 0.02 // Minimum 0.02 SOL
   });
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      await handleImageUpload(file);
+    } else {
+      toast({
+        title: "Error",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      await handleImageUpload(file);
+    } else {
+      toast({
+        title: "Error",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData(prev => ({ ...prev, projectLogo: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -138,92 +192,260 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="projectName">Project Name</Label>
-        <Input
-          id="projectName"
-          value={formData.projectName}
-          onChange={handleChange}
-          disabled={isSubmitting || !!existingSlot}
-          required
-        />
-      </div>
+    <>
+      {isMobile ? (
+        // Mobile Form
+        <form onSubmit={handleSubmit} className="space-y-3 p-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="projectName">Project Name</Label>
+            <Input
+              id="projectName"
+              value={formData.projectName}
+              onChange={handleChange}
+              placeholder="e.g., CryptoSquares"
+              disabled={!!existingSlot}
+              className="h-9"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="projectLogo">Project Logo URL</Label>
-        <Input
-          id="projectLogo"
-          value={formData.projectLogo}
-          onChange={handleChange}
-          disabled={isSubmitting || !!existingSlot}
-          required
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="projectLogo">Project Logo</Label>
+            <div
+              className="relative flex h-24 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {formData.projectLogo ? (
+                <img
+                  src={formData.projectLogo}
+                  alt="Project Logo"
+                  className="h-20 w-20 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="text-center p-2">
+                  <ImagePlus className="mx-auto h-8 w-8 text-gray-400" />
+                  <div className="mt-1 text-xs">
+                    Upload image
+                    <div className="text-[10px] text-gray-500">PNG, JPG, GIF up to 10MB</div>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileSelect}
+                disabled={!!existingSlot}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUrlInput(!showUrlInput)}
+              className="text-xs h-7 mt-1"
+              disabled={!!existingSlot}
+            >
+              Or use URL
+            </Button>
+            {showUrlInput && (
+              <Input
+                type="url"
+                placeholder="https://example.com/logo.png"
+                value={formData.projectLogo}
+                onChange={(e) => setFormData(prev => ({ ...prev, projectLogo: e.target.value }))}
+                className="text-xs h-7 mt-1"
+                disabled={!!existingSlot}
+              />
+            )}
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="projectLink">Project Website</Label>
-        <Input
-          id="projectLink"
-          value={formData.projectLink}
-          onChange={handleChange}
-          disabled={isSubmitting || !!existingSlot}
-          required
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="projectLink">Project Website</Label>
+            <Input
+              id="projectLink"
+              value={formData.projectLink}
+              onChange={handleChange}
+              placeholder="e.g., cryptosquares.com"
+              disabled={!!existingSlot}
+              className="h-9"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="telegramLink">Telegram Link (Optional)</Label>
-        <Input
-          id="telegramLink"
-          value={formData.telegramLink}
-          onChange={handleChange}
-          disabled={isSubmitting || !!existingSlot}
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="telegramLink">Telegram Link</Label>
+            <Input
+              id="telegramLink"
+              value={formData.telegramLink}
+              onChange={handleChange}
+              placeholder="e.g., t.me/yourgroup"
+              disabled={!!existingSlot}
+              className="h-9"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="chartLink">Chart Link (Optional)</Label>
-        <Input
-          id="chartLink"
-          value={formData.chartLink}
-          onChange={handleChange}
-          disabled={isSubmitting || !!existingSlot}
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="chartLink">Chart Link</Label>
+            <Input
+              id="chartLink"
+              value={formData.chartLink}
+              onChange={handleChange}
+              placeholder="e.g., dexscreener.com/yourtoken"
+              disabled={!!existingSlot}
+              className="h-9"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="totalContributions">
-          Contribution Amount (SOL) - {calculateBoostTime(formData.totalContributions)} hours
-        </Label>
-        <Input
-          id="totalContributions"
-          type="number"
-          min={0.02}
-          max={existingSlot ? maxContribution : 0.96}
-          step={0.02}
-          value={formData.totalContributions}
-          onChange={handleChange}
-          disabled={isSubmitting}
-          required
-        />
-        <p className="text-sm text-gray-500">
-          {existingSlot ? (
-            `Maximum additional contribution: ${maxContribution.toFixed(3)} SOL (${remainingHours} hours)`
-          ) : (
-            'Minimum: 0.02 SOL (1 hour) - Maximum: 0.96 SOL (48 hours)'
-          )}
-        </p>
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="totalContributions">Contribution Amount (SOL)</Label>
+            <Input
+              id="totalContributions"
+              type="number"
+              step="0.02"
+              min="0.02"
+              max={existingSlot ? maxContribution : 0.96}
+              value={formData.totalContributions}
+              onChange={handleChange}
+              className="h-9"
+            />
+            <div className="text-xs text-gray-500">
+              0.02 SOL per hour, maximum 48 hours ({(formData.totalContributions / 0.02).toFixed(1)} hours)
+            </div>
+          </div>
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full"
-      >
-        {isSubmitting ? 'Submitting...' : existingSlot ? 'Add Time' : 'Submit Project'}
-      </Button>
-    </form>
+          <Button type="submit" className="w-full h-9 mt-2" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : existingSlot ? "Add More Time" : "Submit"}
+          </Button>
+        </form>
+      ) : (
+        // Desktop Form
+        <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <div className="space-y-2">
+            <Label htmlFor="projectName">Project Name</Label>
+            <Input
+              id="projectName"
+              value={formData.projectName}
+              onChange={handleChange}
+              placeholder="e.g., CryptoSquares"
+              disabled={!!existingSlot}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="projectLogo">Project Logo</Label>
+            <div
+              className="relative flex h-32 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {formData.projectLogo ? (
+                <img
+                  src={formData.projectLogo}
+                  alt="Project Logo"
+                  className="h-28 w-28 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="text-center">
+                  <ImagePlus className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="mt-2">
+                    Choose file or drag and drop
+                    <div className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</div>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileSelect}
+                disabled={!!existingSlot}
+              />
+            </div>
+            <div className="flex items-center space-x-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                disabled={!!existingSlot}
+              >
+                Or use URL
+              </Button>
+              {showUrlInput && (
+                <Input
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={formData.projectLogo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, projectLogo: e.target.value }))}
+                  disabled={!!existingSlot}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="projectLink">Project Website</Label>
+            <Input
+              id="projectLink"
+              value={formData.projectLink}
+              onChange={handleChange}
+              placeholder="e.g., cryptosquares.com"
+              disabled={!!existingSlot}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="telegramLink">Telegram Link</Label>
+            <Input
+              id="telegramLink"
+              value={formData.telegramLink}
+              onChange={handleChange}
+              placeholder="e.g., t.me/yourgroup"
+              disabled={!!existingSlot}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="chartLink">Chart Link</Label>
+            <Input
+              id="chartLink"
+              value={formData.chartLink}
+              onChange={handleChange}
+              placeholder="e.g., dexscreener.com/yourtoken"
+              disabled={!!existingSlot}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="totalContributions">Contribution Amount (SOL)</Label>
+            <Input
+              id="totalContributions"
+              type="number"
+              step="0.02"
+              min="0.02"
+              max={existingSlot ? maxContribution : 0.96}
+              value={formData.totalContributions}
+              onChange={handleChange}
+            />
+            <div className="text-sm text-gray-500">
+              0.02 SOL per hour, maximum 48 hours ({(formData.totalContributions / 0.02).toFixed(1)} hours)
+            </div>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : existingSlot ? "Add More Time" : "Submit"}
+          </Button>
+        </form>
+      )}
+    </>
   );
 }
 

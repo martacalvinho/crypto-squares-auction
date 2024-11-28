@@ -14,13 +14,10 @@ export const formatUrl = (url: string): string => {
     return url;
   }
 
-  // If URL starts with 'www.', add https://
-  if (url.startsWith('www.')) {
-    return `https://${url}`;
-  }
-
-  // If URL is just a domain (e.g., 'example.com')
-  if (url.includes('.') && !url.includes('://') && !url.startsWith('www.')) {
+  // If URL starts with 'www.' or is a domain (e.g., 'example.com')
+  if (url.includes('.')) {
+    // Remove any existing protocol or www
+    url = url.replace(/^(https?:\/\/)?(www\.)?/, '');
     return `https://www.${url}`;
   }
 

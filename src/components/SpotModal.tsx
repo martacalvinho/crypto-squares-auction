@@ -14,6 +14,8 @@ import { sendPayment } from '@/integrations/wallet/transaction';
 import { getMinimumBid, formatSol } from '@/lib/price';
 import { SuccessModal } from "./SuccessModal";
 import { formatUrl } from "@/lib/url";
+import { useMobile } from "@/hooks/use-mobile";
+import { X } from "lucide-react";
 
 interface SpotModalProps {
   spotId: number;
@@ -37,6 +39,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isMobile = useMobile();
 
   // Ensure wallet is ready
   useEffect(() => {
@@ -279,123 +282,217 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
     }
   };
 
-  return (
-    <>
-      <Dialog open onOpenChange={() => onClose()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{modalTitle}</DialogTitle>
-            <p className="text-sm text-muted-foreground">{modalDescription}</p>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label>Project Name *</Label>
+  return showSuccess ? (
+    <SuccessModal 
+      onClose={onClose} 
+      spotId={spotId} 
+      previousProjectName={previousProjectName}
+    />
+  ) : (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{modalTitle}</DialogTitle>
+          <p className="text-sm text-gray-500">{modalDescription}</p>
+        </DialogHeader>
+
+        {isMobile ? (
+          // Mobile Form
+          <form onSubmit={handleSubmit} className="space-y-3 p-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="projectName">Project Name</Label>
               <Input
-                placeholder="Enter your project name"
+                id="projectName"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
+                placeholder="e.g., CryptoSquares"
+                className="h-9"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Project Link *</Label>
-              <Input
-                placeholder="https://... "
-                value={projectLink}
-                onChange={(e) => setProjectLink(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Project Logo</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="projectLogo">Project Logo</Label>
               <div
-                className={cn(
-                  "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-                  isDragging ? "border-crypto-primary bg-crypto-primary/10" : "border-crypto-primary/20 hover:border-crypto-primary/40",
-                  "relative"
-                )}
+                className="relative flex h-24 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
                 onDragEnter={handleDragEnter}
-                onDragOver={(e) => e.preventDefault()}
                 onDragLeave={handleDragLeave}
+                onDragOver={(e) => e.preventDefault()}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div className="flex flex-col items-center gap-2">
-                  <ImagePlus className="w-8 h-8 text-gray-400" />
-                  <p className="text-sm text-gray-400">
-                    Drag and drop an image here, or click to select
-                  </p>
-                </div>
-                {projectLogo && (
-                  <div className="mt-4">
-                    <img
-                      src={projectLogo}
-                      alt="Logo preview"
-                      className="max-h-32 mx-auto rounded-lg"
-                    />
+                {projectLogo ? (
+                  <img
+                    src={projectLogo}
+                    alt="Project Logo"
+                    className="h-20 w-20 rounded-lg object-contain"
+                  />
+                ) : (
+                  <div className="text-center p-2">
+                    <ImagePlus className="mx-auto h-8 w-8 text-gray-400" />
+                    <div className="mt-1 text-xs">
+                      Upload image
+                      <div className="text-[10px] text-gray-500">PNG, JPG, GIF up to 10MB</div>
+                    </div>
                   </div>
                 )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                />
               </div>
-              
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="mt-2 w-full"
                 onClick={() => setShowUrlInput(!showUrlInput)}
+                className="text-xs h-7 mt-1"
               >
-                {showUrlInput ? "Hide URL input" : "Use image URL instead"}
+                Or use URL
               </Button>
-
               {showUrlInput && (
                 <Input
-                  placeholder="https://... (image URL)"
+                  type="url"
+                  placeholder="https://example.com/logo.png"
                   value={projectLogo}
                   onChange={(e) => setProjectLogo(e.target.value)}
+                  className="text-xs h-7 mt-1"
                 />
               )}
             </div>
-            <div className="space-y-2">
-              <Label>Purchase Amount (SOL)</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="projectLink">Project Website</Label>
               <Input
+                id="projectLink"
+                value={projectLink}
+                onChange={(e) => setProjectLink(e.target.value)}
+                placeholder="e.g., cryptosquares.com"
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="customPrice">Bid Amount (SOL)</Label>
+              <Input
+                id="customPrice"
                 type="number"
-                step="0.001"
+                step="0.01"
                 min={minimumBid}
                 value={customPrice}
                 onChange={(e) => setCustomPrice(e.target.value)}
-                placeholder={`Min: ${formatSol(minimumBid)} SOL`}
+                placeholder={minimumBid.toString()}
+                className="h-9"
               />
-              <div className="text-sm text-gray-400">
+              <div className="text-xs text-gray-500">
                 Minimum bid: {formatSol(minimumBid)} SOL
-                {currentPrice >= 1 ? " (10% above current price)" : " (0.05 SOL above current price)"}
               </div>
             </div>
-            <Button
-              className="w-full"
-              onClick={handleSubmit}
-              disabled={isSubmitting || !connected}
-            >
-              {isSubmitting ? "Claiming..." : "Claim Spot"}
+
+            <Button type="submit" className="w-full h-9 mt-2" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : isEmpty ? "Buy Spot" : "Steal Spot"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {showSuccess && (
-        <SuccessModal
-          spotId={spotId}
-          projectName={projectName}
-          previousProjectName={previousProjectName}
-          onClose={() => {
-            setShowSuccess(false);
-            onClose();
-          }}
-        />
-      )}
-    </>
+          </form>
+        ) : (
+          // Desktop Form
+          <form onSubmit={handleSubmit} className="space-y-4 p-6">
+            <div className="space-y-2">
+              <Label htmlFor="projectName">Project Name</Label>
+              <Input
+                id="projectName"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="e.g., CryptoSquares"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectLogo">Project Logo</Label>
+              <div
+                className="relative flex h-32 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {projectLogo ? (
+                  <img
+                    src={projectLogo}
+                    alt="Project Logo"
+                    className="h-28 w-28 rounded-lg object-contain"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <ImagePlus className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-2">
+                      Choose file or drag and drop
+                      <div className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</div>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                />
+              </div>
+              <div className="flex items-center space-x-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowUrlInput(!showUrlInput)}
+                >
+                  Or use URL
+                </Button>
+                {showUrlInput && (
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={projectLogo}
+                    onChange={(e) => setProjectLogo(e.target.value)}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectLink">Project Website</Label>
+              <Input
+                id="projectLink"
+                value={projectLink}
+                onChange={(e) => setProjectLink(e.target.value)}
+                placeholder="e.g., cryptosquares.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="customPrice">Bid Amount (SOL)</Label>
+              <Input
+                id="customPrice"
+                type="number"
+                step="0.01"
+                min={minimumBid}
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+                placeholder={minimumBid.toString()}
+              />
+              <div className="text-sm text-gray-500">
+                Minimum bid: {formatSol(minimumBid)} SOL
+              </div>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : isEmpty ? "Buy Spot" : "Steal Spot"}
+            </Button>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { SpotModal } from '@/components/SpotModal';
 import { DesktopHero } from '@/components/hero/DesktopHero';
 import { MobileHero } from '@/components/hero/MobileHero';
+import cn from 'classnames';
 
 const Index = () => {
   const { connected } = useWallet();
@@ -110,7 +111,10 @@ const Index = () => {
 
       {/* Boost Dialog */}
       <Dialog open={isBoostDialogOpen} onOpenChange={setIsBoostDialogOpen}>
-        <DialogContent>
+        <DialogContent className={cn(
+          "sm:max-w-lg",
+          "w-[90%] h-auto"
+        )}>
           <DialogHeader>
             <DialogTitle>Boost Your Project</DialogTitle>
           </DialogHeader>

@@ -230,7 +230,7 @@ export const Grid = () => {
       </div>
 
       {/* Desktop Grid */}
-      <div className="hidden md:grid md:grid-cols-12 gap-8">
+      <div className="hidden md:grid md:grid-cols-12 gap-6">
         <div className="md:col-span-9">
           <div className="mb-4">
             <SearchFilters
@@ -242,7 +242,7 @@ export const Grid = () => {
               onPriceRangeChange={setPriceRange}
             />
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-8 animate-fade-in">
+          <div className="grid grid-cols-5 gap-6">
             {filteredSpots.map((spot) => (
               <GridSpot
                 key={spot.id}
@@ -253,8 +253,8 @@ export const Grid = () => {
           </div>
         </div>
         {isDesktop && (
-          <div className="md:col-span-3 space-y-8">
-            <div className="glass-effect rounded-xl p-4">
+          <div className="md:col-span-3">
+            <div className="glass-effect rounded-xl p-4 mb-6">
               <ActivityFeed />
             </div>
             {selectedSpot !== null && (

@@ -28,9 +28,10 @@ export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) =>
       onClick={onClick}
       className={cn(
         className,
-        "relative aspect-square border border-crypto-primary/20 cursor-pointer transition-all duration-300",
-        "hover:border-crypto-primary hover:shadow-lg hover:shadow-crypto-primary/20",
-        "flex flex-col items-center justify-center p-3 text-center"
+        "relative aspect-square border cursor-pointer transition-all duration-300",
+        spot.project ? "border-2 border-crypto-primary" : "border border-crypto-primary/20 hover:border-crypto-primary",
+        "hover:shadow-lg hover:shadow-crypto-primary/20",
+        "flex flex-col items-center justify-between p-3 text-center h-[180px]"
       )}
       style={style}
     >
@@ -40,7 +41,7 @@ export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) =>
       
       {spot.project ? (
         <>
-          <div className="mb-2">
+          <div className="flex-1 flex flex-col items-center justify-center">
             {spot.project.logo ? (
               <img
                 src={spot.project.logo}
@@ -53,53 +54,59 @@ export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) =>
               </div>
             )}
           </div>
-          {spot.project.link ? (
-            <a
-              href={spot.project.link}
-              target="_blank"
-              rel="noopener noreferrer"
+          <div className="w-full">
+            {spot.project.link ? (
+              <a
+                href={spot.project.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(spot.project.link, '_blank', 'noopener,noreferrer');
+                }}
+                className="text-lg font-semibold truncate block text-crypto-primary hover:text-crypto-primary/80 transition-colors"
+              >
+                {spot.project.name}
+              </a>
+            ) : (
+              <div className="text-lg font-semibold truncate text-crypto-primary">
+                {spot.project.name}
+              </div>
+            )}
+            <div className="text-sm font-bold mt-1">{formatSol(spot.currentPrice)} SOL</div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="w-full mt-2 bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
               onClick={(e) => {
                 e.stopPropagation();
-                window.open(spot.project.link, '_blank', 'noopener,noreferrer');
+                onClick();
               }}
-              className="text-sm font-medium truncate w-full text-primary hover:text-primary/80 transition-colors mb-1"
             >
-              {spot.project.name}
-            </a>
-          ) : (
-            <div className="text-sm font-medium truncate w-full text-primary mb-1">
-              {spot.project.name}
-            </div>
-          )}
-          <div className="text-sm font-bold mb-2">{formatSol(spot.currentPrice)} SOL</div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="w-full bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
-          >
-            Steal
-          </Button>
+              Steal
+            </Button>
+          </div>
         </>
       ) : (
         <>
-          <Plus className="w-10 h-10 opacity-50 mb-2" />
-          <div className="text-sm opacity-70 mb-1">Available</div>
-          <div className="text-sm font-bold mb-2">{formatSol(spot.currentPrice)} SOL</div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            className="w-full bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
-          >
-            Buy
-          </Button>
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <Plus className="w-16 h-16 opacity-50" />
+          </div>
+          <div className="w-full">
+            <div className="text-lg font-semibold text-crypto-primary opacity-70">Available</div>
+            <div className="text-sm font-bold mt-1">{formatSol(spot.currentPrice)} SOL</div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="w-full mt-2 bg-crypto-dark border-crypto-primary/20 hover:bg-crypto-primary/10 text-crypto-primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+            >
+              Buy
+            </Button>
+          </div>
         </>
       )}
     </div>

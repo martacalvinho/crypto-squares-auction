@@ -39,9 +39,9 @@ export function getMinimumBid(currentPrice: number, isEmpty: boolean): number {
 /**
  * Formats a SOL amount to a consistent string format
  * @param amount Amount in SOL
- * @returns Formatted string with 3 decimal places
+ * @returns Formatted string with 3 decimal places and 'SOL' suffix
  */
 export function formatSol(amount: number | undefined | null): string {
-    if (amount === undefined || amount === null) return '0';
-    return Number(amount.toFixed(3)).toString();
+    if (amount === undefined || amount === null) return '0 SOL';
+    return `${Number(amount.toFixed(3))} SOL`;
 }
