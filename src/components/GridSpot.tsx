@@ -1,65 +1,6 @@
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-
-// Cache for SOL price
-let lastPrice: number | null = null;
-let lastFetchTime = 0;
-const CACHE_DURATION = 60000; // 1 minute cache
-
-const fetchSolPriceWithCache = async (): Promise<number> => {
-  const now = Date.now();
-  
-  // Return cached price if available and fresh
-  if (lastPrice && (now - lastFetchTime) < CACHE_DURATION) {
-    return lastPrice;
-  }
-
-  try {
-    // Try Binance API first
-    try {
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
-      if (response.ok) {
-        const data = await response.json();
-        lastPrice = parseFloat(data.price);
-        lastFetchTime = now;
-        return lastPrice;
-      }
-    } catch (e: unknown) {
-      console.warn('Binance API failed, trying fallback:', e instanceof Error ? e.message : 'Unknown error');
-    }
-
-    // Fallback to Jupiter API
-    try {
-      const response = await fetch('https://price.jup.ag/v4/price?ids=SOL');
-      if (response.ok) {
-        const data = await response.json();
-        const price = data.data.SOL.price;
-        if (typeof price === 'number' && !isNaN(price)) {
-          lastPrice = price;
-          lastFetchTime = now;
-          return price;
-        }
-      }
-    } catch (e: unknown) {
-      console.warn('Jupiter API failed:', e instanceof Error ? e.message : 'Unknown error');
-    }
-
-    // If both APIs fail and we have a cached price, use it even if expired
-    if (lastPrice !== null && !isNaN(lastPrice)) {
-      console.warn('Using expired cached price');
-      return lastPrice;
-    }
-
-    // If both APIs fail and we don't have a cached price, use a hardcoded approximate price
-    const fallbackPrice = 95; // Approximate SOL price
-    lastPrice = fallbackPrice;
-    return fallbackPrice;
-  } catch (error: unknown) {
-    console.error('Error fetching SOL price:', error instanceof Error ? error.message : 'Unknown error');
-    return lastPrice || 95; // Return cached price or fallback
-  }
-};
+import { formatSol } from "@/lib/price";
 
 interface SpotProps {
   spot: {
@@ -77,119 +18,60 @@ interface SpotProps {
 }
 
 export const GridSpot = ({ spot, onClick }: SpotProps) => {
-  const [solPrice, setSolPrice] = useState<number | null>(null);
-
-  useEffect(() => {
-    const updatePrice = async () => {
-      const price = await fetchSolPriceWithCache();
-      setSolPrice(price);
-    };
-    
-    updatePrice();
-    
-    // Update price every minute
-    const interval = setInterval(updatePrice, CACHE_DURATION);
-    return () => clearInterval(interval);
-  }, []);
-
-  const usdValue = solPrice ? spot.currentPrice * solPrice : null;
-  const nextMinimumUsd = usdValue ? usdValue + 1 : null;
-
-  const formatPrice = (price: number) => {
-    return price.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const formatSolPrice = (price: number | undefined | null) => {
-    if (typeof price !== 'number') return '0.0000';
-    return price.toFixed(4);
-  };
+  const nextMinimumBid = spot.currentPrice >= 1 
+    ? spot.currentPrice * 1.1  // 10% increase for spots ≥1 SOL
+    : spot.currentPrice + 0.05; // 0.05 SOL increase for spots <1 SOL
 
   return (
-    <div className="flex flex-col space-y-3">
-      {/* Logo Square */}
-      <div
-        onClick={onClick}
-        className={cn(
-          "relative aspect-square w-full",
-          "rounded-xl overflow-hidden",
-          "group transition-all duration-300",
-          "hover:scale-105 cursor-pointer",
-          "bg-crypto-primary/5",
-          "flex items-center justify-center"
-        )}
-      >
-        {spot.project?.logo ? (
-          <img
-            src={spot.project.logo}
-            alt={spot.project.name}
-            className="absolute inset-0 w-full h-full object-contain p-4"
-          />
-        ) : (
-          <Plus className="w-8 h-8 text-gray-400/30 group-hover:text-crypto-primary/30 transition-colors duration-300" />
-        )}
-      </div>
-
-      {/* Info Section */}
-      <div className="text-center space-y-2">
-        {spot.project ? (
-          <>
-            {/* Project Name with Number */}
-            <div className="font-semibold text-crypto-primary">
-              <span className="text-gray-500">{`${spot.id + 1}. `}</span>
-              <a 
-                href={spot.project.link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {spot.project.name}
-              </a>
+    <div
+      onClick={onClick}
+      className={cn(
+        "relative aspect-square border border-crypto-primary/20 cursor-pointer transition-all duration-300",
+        "hover:border-crypto-primary hover:shadow-lg hover:shadow-crypto-primary/20",
+        "flex flex-col items-center justify-center p-2 text-center gap-1"
+      )}
+    >
+      <div className="absolute top-2 left-2 text-xs opacity-70 z-10 bg-[#0D0F1A] px-1 rounded"># {spot.id + 1}</div>
+      
+      {spot.project ? (
+        <>
+          {spot.project.logo ? (
+            <img
+              src={spot.project.logo}
+              alt={spot.project.name}
+              className="w-24 h-24 object-contain rounded-lg"
+            />
+          ) : (
+            <div className="w-24 h-24 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+              {spot.project.name.charAt(0)}
             </div>
-            
-            {/* Current Price */}
-            <div className={cn(
-              "text-sm",
-              "text-crypto-primary"
-            )}>
-              {formatSolPrice(spot.currentPrice)} SOL
-              {usdValue && (
-                <span className="text-crypto-primary/70">
-                  {" "}(${formatPrice(usdValue)})
-                </span>
-              )}
-            </div>
-
-            {/* Next Minimum */}
-            {nextMinimumUsd && (
-              <div className="text-xs text-gray-500">
-                Min next: ${formatPrice(nextMinimumUsd)}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="font-semibold text-gray-500">
-              {`${spot.id + 1}. Available`}
-            </div>
-            <div className="text-sm text-crypto-primary">
-              {formatSolPrice(spot.currentPrice)} SOL
-              {usdValue && (
-                <span className="text-crypto-primary/70">
-                  {" "}(${formatPrice(usdValue)})
-                </span>
-              )}
-            </div>
-            {nextMinimumUsd && (
-              <div className="text-xs text-gray-500">
-                Min next: ${formatPrice(nextMinimumUsd)}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          )}
+          {spot.project.link ? (
+            <a
+              href={spot.project.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(spot.project.link, '_blank', 'noopener,noreferrer');
+              }}
+              className="font-medium truncate w-full hover:text-crypto-primary transition-colors"
+            >
+              {spot.project.name}
+            </a>
+          ) : (
+            <div className="font-medium truncate w-full">{spot.project.name}</div>
+          )}
+          <div className="text-xs opacity-70">Current: {formatSol(spot.currentPrice)} SOL</div>
+          <div className="text-xs opacity-70">Next min: {formatSol(nextMinimumBid)} SOL</div>
+        </>
+      ) : (
+        <>
+          <Plus className="w-12 h-12 opacity-50" />
+          <div className="text-sm opacity-70">Available</div>
+          <div className="text-xs opacity-70">Start: {formatSol(spot.currentPrice)} SOL</div>
+        </>
+      )}
     </div>
   );
 };

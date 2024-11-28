@@ -11,7 +11,7 @@ import { ImagePlus } from "lucide-react";
 import { useAccount } from "@/integrations/wallet/use-account";
 import { useWallet } from '@solana/wallet-adapter-react';
 import { sendPayment } from '@/integrations/wallet/transaction';
-import { getSolPrice, getMinimumBid, formatSol, formatUsd } from '@/lib/price';
+import { getMinimumBid, formatSol } from '@/lib/price';
 import { SuccessModal } from "./SuccessModal";
 import { formatUrl } from "@/lib/url";
 
@@ -29,7 +29,6 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
   const [projectLogo, setProjectLogo] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [solPrice, setSolPrice] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -92,33 +91,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
     reader.readAsDataURL(file);
   };
 
-  // Fetch current SOL price
-  useEffect(() => {
-    const fetchSolPrice = async () => {
-      try {
-        const price = await getSolPrice();
-        setSolPrice(price);
-      } catch (error) {
-        console.error('Error fetching SOL price:', error);
-        toast({
-          title: "Warning",
-          description: "Could not fetch SOL price. Using fallback price.",
-          variant: "destructive",
-        });
-      }
-    };
-    fetchSolPrice();
-  }, []);
-
-  // Calculate minimum purchase amount (current price + $1 worth of SOL)
-  const getMinPurchaseAmount = () => {
-    if (!solPrice) return currentPrice + 0.005; // Fallback if price fetch fails
-    const oneDollarInSol = 1 / solPrice;
-    return currentPrice + oneDollarInSol;
-  };
-
-  const minPurchaseAmount = getMinPurchaseAmount();
-  const minimumBid = getMinimumBid(currentPrice, solPrice);
+  const minimumBid = getMinimumBid(currentPrice);
   const purchaseAmount = Number(customPrice) || minimumBid;
 
   const handleSubmit = async () => {
@@ -149,12 +122,12 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
     }
 
     // Format the project link
-    const formattedProjectLink = formatUrl(projectLink);
+    const formattedProjectLink = projectLink ? formatUrl(projectLink) : null;
 
     if (purchaseAmount < minimumBid) {
       toast({
         title: "Invalid Bid",
-        description: `Minimum bid must be ${formatSol(minimumBid)} SOL ($${formatUsd(minimumBid * solPrice)})`,
+        description: `Minimum bid must be ${formatSol(minimumBid)} SOL`,
         variant: "destructive",
       });
       return;
@@ -165,7 +138,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
     try {
       // Basic URL validation
       try {
-        new URL(formattedProjectLink);
+        if (formattedProjectLink) new URL(formattedProjectLink);
         if (projectLogo) new URL(projectLogo);
       } catch {
         throw new Error("Please enter valid URLs");
@@ -232,29 +205,43 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
   const updateDatabase = async (signature: string) => {
     try {
       // First get the current spot data
-      const { data: currentSpot } = await supabase
+      const { data: currentSpot, error: spotError } = await supabase
         .from('spots')
         .select('project_name')
         .eq('id', spotId)
         .single();
 
+      if (spotError) {
+        console.error('Error fetching current spot:', spotError);
+        throw spotError;
+      }
+
       // Store the previous project name if it exists
-      setPreviousProjectName(currentSpot?.project_name);
+      const previousProject = currentSpot?.project_name;
+      setPreviousProjectName(previousProject);
 
       // Insert into spot history if there was a previous project
-      if (currentSpot?.project_name) {
-        await supabase
+      if (previousProject) {
+        const { error: historyError } = await supabase
           .from('spot_history')
           .insert({
             spot_id: spotId,
-            previous_project_name: currentSpot.project_name,
+            previous_project_name: previousProject,
             project_name: projectName,
-            transaction_signature: signature
+            timestamp: new Date().toISOString()
           });
+
+        if (historyError) {
+          console.error('Error inserting spot history:', historyError);
+          throw historyError;
+        }
       }
 
+      // Format the project link
+      const formattedProjectLink = projectLink ? formatUrl(projectLink) : null;
+
       // Update the spot
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('spots')
         .update({
           project_name: projectName,
@@ -262,11 +249,22 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
           project_logo: projectLogo,
           current_bid: purchaseAmount,
           wallet_address: publicKey.toString(),
-          last_transaction: signature
+          last_transaction: signature,
+          updated_at: new Date().toISOString()
         })
         .eq('id', spotId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Error updating spot:', updateError);
+        throw updateError;
+      }
+
+      console.log('Successfully updated spot and history:', {
+        spotId,
+        previousProject,
+        newProject: projectName,
+        timestamp: new Date().toISOString()
+      });
 
       setShowSuccess(true);
     } catch (error) {
@@ -366,8 +364,8 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice }: SpotMo
                 placeholder={`Min: ${formatSol(minimumBid)} SOL`}
               />
               <div className="text-sm text-gray-400">
-                Minimum purchase: {formatSol(minimumBid)} SOL 
-                {solPrice && ` ($${formatUsd(minimumBid * solPrice)})`}
+                Minimum bid: {formatSol(minimumBid)} SOL
+                {currentPrice >= 1 ? " (10% above current price)" : " (0.05 SOL above current price)"}
               </div>
             </div>
             <Button

@@ -10,7 +10,6 @@ import { BoostSlotDetails } from '@/components/boost/BoostSlotDetails';
 import { formatTimeLeft } from './BoostUtils';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
-import { getSolPrice } from '@/lib/price';
 import { useBoostSlots } from '@/hooks/useBoostSlots';
 import cn from 'classnames';
 import {
@@ -68,8 +67,6 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
   const [waitlistProjects, setWaitlistProjects] = useState<WaitlistProject[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<BoostSlot | null>(null);
-  const [solPrice, setSolPrice] = useState<number>(0);
-  const [isSolPriceLoading, setIsSolPriceLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   // Function to handle opening the dialog
@@ -78,15 +75,6 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
       toast({
         title: "Connect Wallet",
         description: "Please connect your wallet to boost a project",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (isSolPriceLoading || solPrice <= 0) {
-      toast({
-        title: "Loading",
-        description: "Please wait while we fetch the latest SOL price",
         variant: "destructive"
       });
       return;
@@ -134,31 +122,6 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
     const timer = setInterval(updateTimers, 1000);
     return () => clearInterval(timer);
   }, [slots]);
-
-  // Fetch SOL price
-  useEffect(() => {
-    const fetchSolPrice = async () => {
-      try {
-        setIsSolPriceLoading(true);
-        const price = await getSolPrice();
-        setSolPrice(price);
-      } catch (error) {
-        console.error('Error fetching SOL price:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch SOL price. Please try again later.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsSolPriceLoading(false);
-      }
-    };
-
-    fetchSolPrice();
-    // Refresh price every minute
-    const interval = setInterval(fetchSolPrice, 60000);
-    return () => clearInterval(interval);
-  }, [toast]);
 
   useEffect(() => {
     if (boostData) {
@@ -217,9 +180,21 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
                           className="w-full h-full object-cover rounded-full border-2 border-crypto-dark group-hover:border-crypto-primary transition-colors"
                         />
                       </div>
-                      <p className="mt-2 text-xs text-center text-gray-400 group-hover:text-crypto-primary transition-colors truncate">
-                        {slot.project_name}
-                      </p>
+                      {slot.project_link ? (
+                        <a
+                          href={slot.project_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-2 text-xs text-center text-gray-400 hover:text-crypto-primary transition-colors truncate block"
+                        >
+                          {slot.project_name}
+                        </a>
+                      ) : (
+                        <p className="mt-2 text-xs text-center text-gray-400 group-hover:text-crypto-primary transition-colors truncate">
+                          {slot.project_name}
+                        </p>
+                      )}
                       <div className="mt-1 w-full">
                         <Progress 
                           value={calculateTimeProgress(slot.start_time, slot.end_time)}
@@ -281,7 +256,6 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
             </DialogTitle>
           </DialogHeader>
           <BoostSubmissionForm 
-            solPrice={solPrice} 
             onSuccess={handleCloseDialog}
             existingSlot={selectedSlot}
           />
@@ -295,7 +269,6 @@ export const Boost = ({ onOpenBoostDialog }: BoostProps) => {
           isOpen={!!selectedSlot}
           onClose={handleCloseDetails}
           onContribute={handleContributeFromDetails}
-          solPrice={solPrice}
         />
       )}
 

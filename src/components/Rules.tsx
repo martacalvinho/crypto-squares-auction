@@ -45,8 +45,9 @@ export const Rules = ({ variant = 'default' }: RulesProps) => {
             <section>
               <h3 className="font-semibold text-lg mb-2 text-crypto-primary">Bidding</h3>
               <ul className="list-disc pl-5 space-y-1.5">
-                <li>Start bidding at $1.00 for any empty spot</li>
-                <li>Each new bid must be at least $1.00 higher</li>
+                <li>Start bidding at 0.005 SOL for any empty spot</li>
+                <li>For spots under 1 SOL: minimum increase of 0.05 SOL</li>
+                <li>For spots over 1 SOL: minimum increase of 10%</li>
                 <li>All bids are final</li>
               </ul>
             </section>
@@ -54,7 +55,7 @@ export const Rules = ({ variant = 'default' }: RulesProps) => {
             <section>
               <h3 className="font-semibold text-lg mb-2 text-crypto-primary">Boost</h3>
               <ul className="list-disc pl-5 space-y-1.5">
-                <li>Minimum contribution of 0.05 SOL (~$10) for 1 hour of boost time</li>
+                <li>Minimum contribution of 0.05 SOL for 1 hour of boost time</li>
                 <li>Each 0.05 SOL adds 1 hour of featured time</li>
                 <li>Maximum of 48 hours per slot</li>
                 <li>Projects move up slots as others expire</li>

@@ -62,7 +62,7 @@ export const Grid = () => {
       
       // Map spots to our format
       return data.map(spot => {
-        const startingPrice = 0.005; // $1 equivalent in SOL
+        const startingPrice = 0.005; // Starting price in SOL for empty spots
         return {
           id: spot.id,
           currentPrice: spot.project_name ? (spot.current_bid || startingPrice) : startingPrice,

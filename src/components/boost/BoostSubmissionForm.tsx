@@ -12,11 +12,10 @@ import { formatUrl } from "@/lib/url";
 
 interface BoostSubmissionFormProps {
   onSuccess?: () => void;
-  solPrice: number;
   existingSlot?: BoostSlot;
 }
 
-export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: BoostSubmissionFormProps) {
+export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmissionFormProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { toast } = useToast();
@@ -27,7 +26,7 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
     ? Math.ceil((new Date(existingSlot.end_time).getTime() - new Date(existingSlot.start_time).getTime()) / (1000 * 60 * 60))
     : 0;
   const remainingHours = 48 - currentBoostHours;
-  const maxContribution = remainingHours * 5; // $5 per hour
+  const maxContribution = remainingHours * 0.02; // 0.02 SOL per hour
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,7 +35,7 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
     projectLink: existingSlot?.project_link || '',
     telegramLink: existingSlot?.telegram_link || '',
     chartLink: existingSlot?.chart_link || '',
-    totalContributions: 5 // Minimum $5
+    totalContributions: 0.02 // Minimum 0.02 SOL
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,13 +43,13 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
     if (id === 'totalContributions') {
       let numValue = value === '' ? 0 : Number(value);
       
-      if (numValue > 240) {
+      if (numValue > 0.96) { // 0.96 SOL = 48 hours at 0.02 SOL/hour
         toast({
           title: 'Maximum Time Exceeded',
-          description: 'Maximum boost time is 48 hours ($240)',
+          description: 'Maximum boost time is 48 hours (0.96 SOL)',
           variant: 'destructive',
         });
-        numValue = 240;
+        numValue = 0.96;
       }
       
       setFormData(prev => ({ ...prev, [id]: numValue }));
@@ -71,20 +70,11 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
       return;
     }
 
-    if (!solPrice || solPrice <= 0) {
-      toast({
-        title: 'Error',
-        description: 'Invalid SOL price. Please try again later.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     // Validate contribution amount
-    if (formData.totalContributions < 5) {
+    if (formData.totalContributions < 0.02) {
       toast({
         title: 'Error',
-        description: 'Minimum contribution is $5',
+        description: 'Minimum contribution is 0.02 SOL',
         variant: 'destructive',
       });
       return;
@@ -104,68 +94,42 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
 
       // Format URLs
       const formattedProjectLink = formatUrl(formData.projectLink);
-      const formattedTelegramLink = formData.telegramLink ? formatUrl(formData.telegramLink) : null;
-      const formattedChartLink = formData.chartLink ? formatUrl(formData.chartLink) : null;
-      const formattedProjectLogo = formData.projectLogo ? formatUrl(formData.projectLogo) : null;
+      const formattedTelegramLink = formData.telegramLink ? formatUrl(formData.telegramLink) : '';
+      const formattedChartLink = formData.chartLink ? formatUrl(formData.chartLink) : '';
 
-      // Basic URL validation
-      try {
-        new URL(formattedProjectLink);
-        if (formattedTelegramLink) new URL(formattedTelegramLink);
-        if (formattedChartLink) new URL(formattedChartLink);
-        if (formattedProjectLogo) new URL(formattedProjectLogo);
-      } catch {
-        throw new Error("Please enter valid URLs");
-      }
+      const submission: ProjectSubmission = {
+        project_name: formData.projectName,
+        project_logo: formData.projectLogo,
+        project_link: formattedProjectLink,
+        telegram_link: formattedTelegramLink || undefined,
+        chart_link: formattedChartLink || undefined,
+        initial_contribution: formData.totalContributions
+      };
 
       if (existingSlot) {
-        // Submit additional time
         await submitAdditionalTime(
           existingSlot.id,
           formData.totalContributions,
           wallet,
-          connection,
-          solPrice
+          connection
         );
-
-        toast({
-          title: 'Success!',
-          description: `Added ${calculateBoostTime(formData.totalContributions)} boost time!`,
-        });
       } else {
-        // Submit new project
-        const projectData: ProjectSubmission = {
-          project_name: formData.projectName,
-          project_logo: formattedProjectLogo,
-          project_link: formattedProjectLink,
-          telegram_link: formattedTelegramLink || undefined,
-          chart_link: formattedChartLink || undefined,
-          initial_contribution: formData.totalContributions
-        };
-
-        const result = await submitBoostProject(
-          projectData,
-          wallet,
-          connection,
-          solPrice
-        );
-
-        toast({
-          title: 'Success!',
-          description: result.type === 'boosted' 
-            ? `Your project has been boosted in slot ${result.slot}!`
-            : 'Your project has been added to the waitlist.',
-        });
+        await submitBoostProject(submission, wallet, connection);
       }
 
-      if (onSuccess) {
-        onSuccess();
-      }
+      toast({
+        title: 'Success!',
+        description: existingSlot
+          ? 'Successfully added boost time!'
+          : 'Successfully submitted project!',
+      });
+
+      onSuccess?.();
     } catch (error) {
-      console.error('Error submitting project:', error);
+      console.error('Submission error:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Error submitting project',
+        description: error instanceof Error ? error.message : 'Failed to submit project',
         variant: 'destructive',
       });
     } finally {
@@ -175,100 +139,94 @@ export function BoostSubmissionForm({ onSuccess, solPrice, existingSlot }: Boost
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {!existingSlot ? (
-        // New project form fields
-        <>
-          <div>
-            <Label htmlFor="projectName">Project Name</Label>
-            <Input
-              id="projectName"
-              value={formData.projectName}
-              onChange={handleChange}
-              required
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="projectName">Project Name</Label>
+        <Input
+          id="projectName"
+          value={formData.projectName}
+          onChange={handleChange}
+          disabled={isSubmitting || !!existingSlot}
+          required
+        />
+      </div>
 
-          <div>
-            <Label htmlFor="projectLogo">Project Logo URL</Label>
-            <Input
-              id="projectLogo"
-              type="url"
-              value={formData.projectLogo}
-              onChange={handleChange}
-              required
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="projectLogo">Project Logo URL</Label>
+        <Input
+          id="projectLogo"
+          value={formData.projectLogo}
+          onChange={handleChange}
+          disabled={isSubmitting || !!existingSlot}
+          required
+        />
+      </div>
 
-          <div>
-            <Label htmlFor="projectLink">Project Website</Label>
-            <Input
-              id="projectLink"
-              type="url"
-              value={formData.projectLink}
-              onChange={handleChange}
-              required
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="projectLink">Project Website</Label>
+        <Input
+          id="projectLink"
+          value={formData.projectLink}
+          onChange={handleChange}
+          disabled={isSubmitting || !!existingSlot}
+          required
+        />
+      </div>
 
-          <div>
-            <Label htmlFor="telegramLink">Telegram Link (Optional)</Label>
-            <Input
-              id="telegramLink"
-              type="url"
-              value={formData.telegramLink}
-              onChange={handleChange}
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="telegramLink">Telegram Link (Optional)</Label>
+        <Input
+          id="telegramLink"
+          value={formData.telegramLink}
+          onChange={handleChange}
+          disabled={isSubmitting || !!existingSlot}
+        />
+      </div>
 
-          <div>
-            <Label htmlFor="chartLink">Chart Link (Optional)</Label>
-            <Input
-              id="chartLink"
-              type="url"
-              value={formData.chartLink}
-              onChange={handleChange}
-            />
-          </div>
-        </>
-      ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="chartLink">Chart Link (Optional)</Label>
+        <Input
+          id="chartLink"
+          value={formData.chartLink}
+          onChange={handleChange}
+          disabled={isSubmitting || !!existingSlot}
+        />
+      </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="totalContributions">
-          {existingSlot ? 'Additional Time Contribution' : 'Initial Contribution'} (USD)
+          Contribution Amount (SOL) - {calculateBoostTime(formData.totalContributions)} hours
         </Label>
         <Input
           id="totalContributions"
           type="number"
-          min={0}
-          max={maxContribution}
-          step={1}
-          value={formData.totalContributions || ''}
+          min={0.02}
+          max={existingSlot ? maxContribution : 0.96}
+          step={0.02}
+          value={formData.totalContributions}
           onChange={handleChange}
+          disabled={isSubmitting}
           required
         />
-        {existingSlot ? (
-          <div className="text-sm text-gray-500 mt-1 space-y-1">
-            <p>Current boost time: {currentBoostHours} hours</p>
-            <p>Remaining available time: {remainingHours} hours</p>
-            <p>Maximum additional contribution: ${maxContribution} ({remainingHours} hours)</p>
-            <p>Selected time: {calculateBoostTime(formData.totalContributions)}</p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500 mt-1">
-            Minimum $5 (1 hour). Maximum 48 hours boost time.
-          </p>
-        )}
+        <p className="text-sm text-gray-500">
+          {existingSlot ? (
+            `Maximum additional contribution: ${maxContribution.toFixed(3)} SOL (${remainingHours} hours)`
+          ) : (
+            'Minimum: 0.02 SOL (1 hour) - Maximum: 0.96 SOL (48 hours)'
+          )}
+        </p>
       </div>
 
-      <Button type="submit" disabled={isSubmitting || !wallet.connected}>
-        {isSubmitting ? 'Submitting...' : existingSlot ? 'Add More Time' : 'Submit Project'}
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full"
+      >
+        {isSubmitting ? 'Submitting...' : existingSlot ? 'Add Time' : 'Submit Project'}
       </Button>
     </form>
   );
 }
 
-function calculateBoostTime(amount: number) {
-  const hours = Math.floor(amount / 5);
-  const minutes = Math.round((amount % 5) * 12);
-  return `${hours}h ${minutes}m`;
+function calculateBoostTime(solAmount: number): number {
+  return Math.floor(solAmount * 50); // 50 hours per SOL (0.02 SOL per hour)
 }

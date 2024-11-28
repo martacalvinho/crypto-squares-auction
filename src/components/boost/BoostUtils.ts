@@ -8,9 +8,10 @@ type BoostSlot = Database['public']['Tables']['boost_slots']['Row'];
 type WaitlistProject = Database['public']['Tables']['boost_waitlist']['Row'];
 
 // Constants
-const HOURS_PER_DOLLAR = 0.2; // $5 = 1 hour
+const HOURS_PER_SOL = 50; // 0.02 SOL per hour
 const MAX_BOOST_HOURS = 48;
-const MIN_CONTRIBUTION = 5;
+const MIN_CONTRIBUTION_SOL = 0.02; // Minimum buy-in is 0.02 SOL
+const MAX_CONTRIBUTION_SOL = 0.96; // 48 hours * 0.02 SOL
 const RECIPIENT_WALLET = new PublicKey('5FHwkrdxntdK24hgQU8qgBjn35Y1zwhz4FPeDR1dWySB');
 
 export interface ProjectSubmission {
@@ -19,11 +20,11 @@ export interface ProjectSubmission {
   project_link: string;
   telegram_link?: string;
   chart_link?: string;
-  initial_contribution: number;  // Changed from total_contributions
+  initial_contribution: number;
 }
 
-export function calculateBoostDuration(amount: number) {
-  const hours = amount * HOURS_PER_DOLLAR;
+export function calculateBoostDuration(solAmount: number) {
+  const hours = solAmount * HOURS_PER_SOL;
   const cappedHours = Math.min(hours, MAX_BOOST_HOURS);
   const minutes = (hours - Math.floor(hours)) * 60;
 
@@ -36,31 +37,26 @@ export function calculateBoostDuration(amount: number) {
 export async function processBoostPayment(
   wallet: WalletContextState,
   connection: Connection,
-  amountUSD: number,
-  solPrice: number
+  solAmount: number
 ) {
   if (!wallet.publicKey || !wallet.signTransaction) {
     throw new Error('Wallet not connected');
   }
 
-  if (!solPrice || solPrice <= 0 || isNaN(solPrice)) {
-    console.error('Invalid SOL price:', { solPrice });
-    throw new Error('Invalid SOL price. Please try again later.');
+  if (!solAmount || solAmount < MIN_CONTRIBUTION_SOL || isNaN(solAmount)) {
+    console.error('Invalid SOL amount:', { solAmount });
+    throw new Error(`Minimum contribution is ${MIN_CONTRIBUTION_SOL} SOL`);
   }
 
-  if (!amountUSD || amountUSD < MIN_CONTRIBUTION || isNaN(amountUSD)) {
-    console.error('Invalid USD amount:', { amountUSD });
-    throw new Error(`Minimum contribution is $${MIN_CONTRIBUTION}`);
+  if (solAmount > MAX_CONTRIBUTION_SOL) {
+    console.error('Exceeds maximum SOL amount:', { solAmount });
+    throw new Error(`Maximum contribution is ${MAX_CONTRIBUTION_SOL} SOL (48 hours)`);
   }
 
   console.log('Processing payment:', {
-    amountUSD,
-    solPrice,
-    solAmount: amountUSD / solPrice,
+    solAmount,
   });
 
-  // Convert USD to SOL with proper rounding
-  const solAmount = Number((amountUSD / solPrice).toFixed(9)); // 9 decimals for SOL
   const lamports = Math.floor(solAmount * LAMPORTS_PER_SOL);
 
   console.log('Calculated amounts:', {
@@ -71,8 +67,6 @@ export async function processBoostPayment(
 
   if (isNaN(lamports) || lamports <= 0) {
     console.error('Invalid lamports amount:', {
-      amountUSD,
-      solPrice,
       solAmount,
       lamports
     });
@@ -101,21 +95,24 @@ export async function processBoostPayment(
 
     return signature;
   } catch (error) {
-    console.error('Payment error:', error);
-    throw new Error('Payment failed. Please try again.');
+    console.error('Transaction error:', error);
+    throw new Error('Failed to process payment. Please try again.');
   }
 }
 
 export async function submitBoostProject(
   values: ProjectSubmission,
   wallet: WalletContextState,
-  connection: Connection,
-  solPrice: number
+  connection: Connection
 ) {
   try {
     // Validate minimum contribution
-    if (values.initial_contribution < MIN_CONTRIBUTION) {
-      throw new Error(`Minimum contribution is $${MIN_CONTRIBUTION}`);
+    if (values.initial_contribution < MIN_CONTRIBUTION_SOL) {
+      throw new Error(`Minimum contribution is ${MIN_CONTRIBUTION_SOL} SOL`);
+    }
+
+    if (values.initial_contribution > MAX_CONTRIBUTION_SOL) {
+      throw new Error(`Maximum contribution is ${MAX_CONTRIBUTION_SOL} SOL (48 hours)`);
     }
 
     if (!wallet.publicKey) {
@@ -145,8 +142,7 @@ export async function submitBoostProject(
     const signature = await processBoostPayment(
       wallet,
       connection,
-      formattedValues.initial_contribution,
-      solPrice
+      formattedValues.initial_contribution
     );
 
     // Calculate boost duration
@@ -436,15 +432,14 @@ export async function submitAdditionalTime(
   slotId: number,
   amount: number,
   wallet: WalletContextState,
-  connection: Connection,
-  solPrice: number
+  connection: Connection
 ): Promise<void> {
   if (!wallet.publicKey || !wallet.signTransaction) {
     throw new Error('Wallet not connected');
   }
 
   // Calculate SOL amount based on USD contribution
-  const solAmount = amount / solPrice;
+  const solAmount = amount;
 
   // Create and sign transaction
   const transaction = await createContributionTransaction(
@@ -476,7 +471,7 @@ export async function submitAdditionalTime(
   }
 
   // Update slot end time
-  const additionalHours = Math.floor(amount / 5);
+  const additionalHours = Math.floor(amount / 0.02);
   
   // First get the current end time
   const { data: currentSlot, error: fetchError } = await supabase

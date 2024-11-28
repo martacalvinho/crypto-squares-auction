@@ -11,22 +11,21 @@ import type { BoostSlot } from './Boost';
 interface BoostContributionFormProps {
   slot: BoostSlot;
   onSuccess?: () => void;
-  solPrice: number;
 }
 
-export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContributionFormProps) {
+export function BoostContributionForm({ slot, onSuccess }: BoostContributionFormProps) {
   const { connection } = useConnection();
   const wallet = useWallet();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [contribution, setContribution] = useState(5); // Start with minimum $5
+  const [contribution, setContribution] = useState(0.02); // Start with minimum 0.02 SOL
 
   // Calculate available time
   const currentBoostHours = Math.ceil(
     (new Date(slot.end_time).getTime() - new Date(slot.start_time).getTime()) / (1000 * 60 * 60)
   );
   const remainingHours = 48 - currentBoostHours;
-  const maxContribution = remainingHours * 5; // $5 per hour
+  const maxContribution = remainingHours * 0.02; // 0.02 SOL per hour
 
   const handleContributionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -35,7 +34,7 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
     if (numValue > maxContribution) {
       toast({
         title: 'Maximum Time Exceeded',
-        description: `Maximum additional contribution is $${maxContribution} (${remainingHours} hours)`,
+        description: `Maximum additional contribution is ${maxContribution.toFixed(3)} SOL (${remainingHours} hours)`,
         variant: 'destructive',
       });
       setContribution(maxContribution);
@@ -56,19 +55,10 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
       return;
     }
 
-    if (!solPrice || solPrice <= 0) {
+    if (contribution < 0.02) {
       toast({
         title: 'Error',
-        description: 'Invalid SOL price. Please try again later.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (contribution < 5) {
-      toast({
-        title: 'Error',
-        description: 'Minimum contribution is $5',
+        description: 'Minimum contribution is 0.02 SOL',
         variant: 'destructive',
       });
       return;
@@ -77,7 +67,7 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
     if (contribution > maxContribution) {
       toast({
         title: 'Error',
-        description: `Maximum additional contribution is $${maxContribution} (${remainingHours} hours)`,
+        description: `Maximum additional contribution is ${maxContribution.toFixed(3)} SOL (${remainingHours} hours)`,
         variant: 'destructive',
       });
       return;
@@ -90,16 +80,14 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
         slot.id,
         contribution,
         wallet,
-        connection,
-        solPrice
+        connection
       );
 
-      const additionalHours = Math.floor(contribution / 5);
-      const additionalMinutes = Math.round((contribution % 5) * 12);
+      const additionalHours = Math.floor(contribution * 50); // 0.02 SOL = 1 hour
       
       toast({
         title: 'Success!',
-        description: `Added ${additionalHours}h ${additionalMinutes}m boost time!`,
+        description: `Added ${additionalHours} hours of boost time!`,
       });
 
       if (onSuccess) {
@@ -109,7 +97,7 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
       console.error('Error submitting contribution:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Error submitting contribution',
+        description: error instanceof Error ? error.message : 'Failed to submit contribution',
         variant: 'destructive',
       });
     } finally {
@@ -117,51 +105,34 @@ export function BoostContributionForm({ slot, onSuccess, solPrice }: BoostContri
     }
   };
 
-  const getTimeFromContribution = (amount: number) => {
-    const hours = Math.floor(amount / 5);
-    const minutes = Math.round((amount % 5) * 12);
-    return `${hours}h ${minutes}m`;
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <div className="flex justify-between text-sm">
-          <span>Current boost time:</span>
-          <span>{currentBoostHours} hours</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span>Remaining available:</span>
-          <span>{remainingHours} hours</span>
-        </div>
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="contribution">
-          Contribution Amount (USD)
+          Contribution Amount (SOL) - {Math.floor(contribution * 50)} hours
         </Label>
         <Input
           id="contribution"
           type="number"
-          min={0}
+          min={0.02}
           max={maxContribution}
-          step={1}
-          value={contribution || ''}
+          step={0.02}
+          value={contribution}
           onChange={handleContributionChange}
+          disabled={isSubmitting}
           required
         />
-        <div className="flex justify-between text-sm text-gray-500">
-          <span>Time to add: {getTimeFromContribution(contribution)}</span>
-          <span>${contribution}</span>
-        </div>
+        <p className="text-sm text-gray-500">
+          {`Minimum: 0.02 SOL (1 hour) - Maximum: ${maxContribution.toFixed(3)} SOL (${remainingHours} hours)`}
+        </p>
       </div>
 
-      <Button 
-        type="submit" 
-        disabled={isSubmitting || !wallet.connected || contribution < 5 || contribution > maxContribution}
+      <Button
+        type="submit"
+        disabled={isSubmitting}
         className="w-full"
       >
-        {isSubmitting ? 'Submitting...' : 'Add Time'}
+        {isSubmitting ? 'Processing...' : 'Add Time'}
       </Button>
     </form>
   );
