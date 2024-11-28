@@ -121,16 +121,38 @@ export const useBoostSlots = () => {
           } else {
             expiredSlots.push(slot);
             console.log(`Found expired slot ${slot.slot_number} (${slot.project_name})`);
-            
-            // Delete expired slot
-            supabase
-              .from('boost_slots')
-              .delete()
-              .eq('id', slot.id)
-              .then(() => console.log(`Deleted expired slot ${slot.slot_number}`))
-              .catch(err => console.error(`Failed to delete expired slot ${slot.slot_number}:`, err));
           }
         });
+
+        // Delete expired slots sequentially to avoid conflicts
+        for (const slot of expiredSlots) {
+          try {
+            // First delete all contributions for this slot
+            const { error: deleteContributionsError } = await supabase
+              .from('boost_contributions')
+              .delete()
+              .eq('slot_id', slot.id);
+
+            if (deleteContributionsError) {
+              console.error(`Failed to delete contributions for slot ${slot.slot_number}:`, deleteContributionsError);
+              continue; // Skip deleting the slot if we couldn't delete contributions
+            }
+
+            // Then delete the slot itself
+            const { error: deleteSlotError } = await supabase
+              .from('boost_slots')
+              .delete()
+              .eq('id', slot.id);
+            
+            if (deleteSlotError) {
+              console.error(`Failed to delete expired slot ${slot.slot_number}:`, deleteSlotError);
+            } else {
+              console.log(`Deleted expired slot ${slot.slot_number}`);
+            }
+          } catch (err) {
+            console.error(`Error deleting expired slot ${slot.slot_number}:`, err);
+          }
+        }
 
         // 4. Get final waitlist
         const { data: finalWaitlist } = await supabase

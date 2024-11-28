@@ -4,9 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { SpotModal } from './SpotModal';
 import { GridSpot } from './GridSpot';
 import { SearchFilters } from './SearchFilters';
+import { MobileSearchFilters } from './MobileSearchFilters';
 import { ShareButtons } from './ShareButtons';
 import { useAccount } from '@/integrations/wallet/use-account';
+import { Button } from './ui/Button';
+import { MobileBottomBar } from './MobileBottomBar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Comments } from './Comments';
+import { FeaturedBanner } from './FeaturedBanner';
 import { ActivityFeed } from './ActivityFeed';
+import { ChevronRight, ChevronLeft } from "lucide-react";
 
 export const Grid = () => {
   const [selectedSpot, setSelectedSpot] = useState<number | null>(null);
@@ -14,6 +21,12 @@ export const Grid = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priceRange, setPriceRange] = useState('all');
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [displayedColumns, setDisplayedColumns] = useState(4);
+  const maxColumns = 8;
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+
   const { isConnected } = useAccount();
 
   useEffect(() => {
@@ -27,6 +40,20 @@ export const Grid = () => {
     return () => {
       window.removeEventListener('resize', checkIfDesktop);
     };
+  }, []);
+
+  useEffect(() => {
+    const container = document.querySelector('.overflow-x-auto');
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      setShowLeftArrow(scrollLeft > 0);
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Fetch spots from Supabase
@@ -51,7 +78,7 @@ export const Grid = () => {
       const { data, error } = await supabase
         .from('spots')
         .select('*')
-        .order('id');
+        .order('id', { ascending: true });
 
       if (error) {
         console.error('Error fetching spots:', error);
@@ -82,9 +109,31 @@ export const Grid = () => {
   // Filter spots based on search term and filters
   const filteredSpots = spots.filter(spot => {
     // Search term filter
-    const searchMatch = !searchTerm || 
-      (spot.project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       (spot.id + 1).toString() === searchTerm);
+    let searchMatch = false;
+    if (!searchTerm) {
+      searchMatch = true;
+    } else {
+      // Check for project name match
+      if (spot.project?.name?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        searchMatch = true;
+      }
+      
+      // Check for spot ID match
+      const spotId = spot.id + 1;
+      if (spotId.toString() === searchTerm) {
+        searchMatch = true;
+      }
+      
+      // Check for spot range match (e.g., "5-15" or "5 to 15")
+      const rangeMatch = searchTerm.match(/^(\d+)(?:\s*[-to]\s*)(\d+)$/i);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1]);
+        const end = parseInt(rangeMatch[2]);
+        if (!isNaN(start) && !isNaN(end)) {
+          searchMatch = spotId >= start && spotId <= end;
+        }
+      }
+    }
 
     // Status filter
     const statusMatch = statusFilter === 'all' ||
@@ -103,6 +152,10 @@ export const Grid = () => {
     return searchMatch && statusMatch && priceMatch;
   });
 
+  const handleShowMore = () => {
+    setDisplayedColumns(prev => Math.min(prev + 4, maxColumns));
+  };
+
   if (isLoading) {
     return (
       <div className="w-full h-[50vh] flex items-center justify-center">
@@ -112,33 +165,81 @@ export const Grid = () => {
   }
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto p-4">      
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-crypto-primary mb-2">Available Spots</h2>
-          <p className="text-sm text-gray-400 mb-4">Claim one of the top 500 spots on Solana</p>
-          <SearchFilters
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            priceRange={priceRange}
-            onPriceRangeChange={setPriceRange}
-          />
-        </div>
+    <div className="-mt-2">
+      <div className="flex flex-col gap-1 mb-3">
+        <h2 className="text-lg font-semibold text-primary">Available Spots</h2>
+        <p className="text-sm text-muted-foreground">Claim one of the top 500 spots on Solana</p>
+      </div>
       
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-          <div className="md:col-span-9">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4 md:gap-8 animate-fade-in">
+      {/* Mobile Grid */}
+      <div className="block md:hidden mb-20">
+        <div className="relative">
+          <div className="overflow-x-auto px-4">
+            <div className="grid grid-cols-3 grid-rows-2 auto-cols-max gap-2 pb-4" 
+                 style={{ width: 'max-content' }}>
               {filteredSpots.map((spot) => (
-                <GridSpot
-                  key={spot.id}
-                  spot={spot}
+                <GridSpot 
+                  key={spot.id} 
+                  spot={spot} 
                   onClick={() => setSelectedSpot(spot.id)}
+                  className="w-[120px]" 
                 />
               ))}
             </div>
           </div>
+          {showLeftArrow && (
+            <button 
+              onClick={() => {
+                const container = document.querySelector('.overflow-x-auto');
+                if (container) {
+                  container.scrollBy({ left: -360, behavior: 'smooth' });
+                }
+              }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-border animate-pulse"
+            >
+              <ChevronLeft className="w-6 h-6 text-primary" />
+            </button>
+          )}
+          {showRightArrow && (
+            <button 
+              onClick={() => {
+                const container = document.querySelector('.overflow-x-auto');
+                if (container) {
+                  container.scrollBy({ left: 360, behavior: 'smooth' });
+                }
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-border animate-pulse"
+            >
+              <ChevronRight className="w-6 h-6 text-primary" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Grid */}
+      <div className="hidden md:grid md:grid-cols-12 gap-8">
+        <div className="md:col-span-9">
+          <div className="mb-4">
+            <SearchFilters
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+            />
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-8 animate-fade-in">
+            {filteredSpots.map((spot) => (
+              <GridSpot
+                key={spot.id}
+                spot={spot}
+                onClick={() => setSelectedSpot(spot.id)}
+              />
+            ))}
+          </div>
+        </div>
+        {isDesktop && (
           <div className="md:col-span-3 space-y-8">
             <div className="glass-effect rounded-xl p-4">
               <ActivityFeed />
@@ -152,14 +253,41 @@ export const Grid = () => {
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Mobile Dialogs */}
+      <Dialog open={isMobileSearchOpen} onOpenChange={setIsMobileSearchOpen}>
+        <DialogContent className="sm:max-w-[425px] p-0 gap-0 bg-background/95 backdrop-blur-xl">
+          <DialogHeader className="p-4 border-b border-border/50">
+            <DialogTitle>Search and Filter Spots</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <MobileSearchFilters
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Bottom Bar */}
+      {!isDesktop && (
+        <MobileBottomBar 
+          onSearchClick={() => setIsMobileSearchOpen(true)}
+        />
+      )}
+
       {selectedSpot !== null && (
         <SpotModal
           spotId={selectedSpot}
           onClose={() => setSelectedSpot(null)}
           isConnected={isConnected}
-          currentPrice={spots[selectedSpot]?.currentPrice || 0.005}
+          currentPrice={0}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface SearchFiltersProps {
+interface MobileSearchFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: string;
@@ -10,26 +10,24 @@ interface SearchFiltersProps {
   onPriceRangeChange: (value: string) => void;
 }
 
-export const SearchFilters = ({
+export const MobileSearchFilters = ({
   searchTerm,
   onSearchChange,
   statusFilter,
   onStatusChange,
   priceRange,
   onPriceRangeChange,
-}: SearchFiltersProps) => {
+}: MobileSearchFiltersProps) => {
   return (
-    <div className="flex flex-col md:flex-row gap-4 mb-8">
-      <div className="flex-1">
-        <Input
-          placeholder="Search by project name, spot ID, or range (e.g., 5-15)..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="bg-crypto-dark border-crypto-primary/20"
-        />
-      </div>
+    <div className="flex flex-col gap-4">
+      <Input
+        placeholder="Search by project name, spot ID, or range (e.g., 5-15)..."
+        value={searchTerm}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className="w-full bg-crypto-dark border-crypto-primary/20"
+      />
       <Select value={statusFilter} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-full md:w-[180px] bg-crypto-dark border-crypto-primary/20">
+        <SelectTrigger className="w-full bg-crypto-dark border-crypto-primary/20">
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>
@@ -39,7 +37,7 @@ export const SearchFilters = ({
         </SelectContent>
       </Select>
       <Select value={priceRange} onValueChange={onPriceRangeChange}>
-        <SelectTrigger className="w-full md:w-[180px] bg-crypto-dark border-crypto-primary/20">
+        <SelectTrigger className="w-full bg-crypto-dark border-crypto-primary/20">
           <SelectValue placeholder="Price range" />
         </SelectTrigger>
         <SelectContent>

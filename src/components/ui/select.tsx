@@ -156,3 +156,24 @@ export {
   SelectScrollUpButton,
   SelectScrollDownButton,
 }
+
+<style>
+  {`
+    @media (max-width: 768px) {
+      .hero-section {
+        font-size: 1.5rem;
+        padding: 20px;
+      }
+      .grid-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .additional-info {
+        display: none;
+      }
+      .toggle-button {
+        display: block;
+        margin: 10px auto;
+      }
+    }
+  `}
+</style>

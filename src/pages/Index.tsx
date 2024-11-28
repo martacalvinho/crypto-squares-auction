@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { Boost } from "@/components/boost/Boost";
 import { MobileDropdown } from "@/components/MobileDropdown";
 import { Rocket } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useWallet } from '@solana/wallet-adapter-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { BoostSubmissionForm } from '@/components/boost/BoostSubmissionForm';
 import { supabase } from '@/lib/supabase';
 import { SpotModal } from '@/components/SpotModal';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 const Index = () => {
   const { connected } = useWallet();
@@ -84,51 +86,59 @@ const Index = () => {
     <div className="min-h-screen bg-crypto-dark">
       <Header />
       
-      {/* Hero Section with Boosted Projects */}
-      <section className="relative overflow-hidden">
-        <div className="hero-gradient absolute inset-0" />
-        <div className="container relative mx-auto py-16 px-4">
-          <div className="grid lg:grid-cols-5 gap-8 items-center">
-            {/* Hero Content */}
-            <div className="lg:col-span-3 text-center lg:text-left hero-glow">
-              <h1 className="text-4xl lg:text-6xl font-bold bg-gradient-to-r from-crypto-primary to-crypto-light bg-clip-text text-transparent mb-6">
-                Own Your Spot in Web3 History
-              </h1>
-              <p className="text-lg lg:text-xl text-gray-400 mb-8 max-w-2xl mx-auto lg:mx-0">
-                Bid on one of 500 exclusive spots to showcase your crypto project. Get featured in our boost section for maximum visibility in the Web3 space.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-crypto-primary to-crypto-light hover:opacity-90 transition-opacity"
-                  onClick={handleStartBidding}
-                >
-                  Start Bidding
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="border-crypto-primary/20 hover:bg-crypto-primary/5"
-                  onClick={handleBoostProject}
-                >
-                  <Rocket className="w-4 h-4 mr-2" />
-                  Boost Your Project
-                </Button>
-              </div>
-            </div>
-
-            {/* Boosted Projects */}
-            <div className="lg:col-span-2">
-              <div className="glass-effect rounded-2xl p-6 lg:p-8 backdrop-blur-xl">
-                <Boost onOpenBoostDialog={() => setIsBoostDialogOpen(true)} />
-              </div>
-            </div>
+      {/* Hero Section */}
+      <div className="container mx-auto px-4 pt-24 pb-16 lg:pb-32 flex flex-col lg:flex-row lg:items-center lg:gap-8">
+        <div className="flex-1">
+          <h1 className="text-4xl lg:text-6xl font-bold bg-gradient-to-r from-crypto-primary to-purple-400 bg-clip-text text-transparent">
+            Buy a spot in Solana History
+          </h1>
+          <p className="mt-4 text-lg lg:text-xl text-gray-400">
+            Get 1 of 500 exclusive spots to showcase your crypto project
+          </p>
+          <div className="mt-8 flex flex-row gap-4">
+            <Button onClick={handleStartBidding} className="flex-1 lg:flex-none lg:w-auto">
+              Start Bidding
+            </Button>
+            <Button
+              onClick={handleBoostProject}
+              variant="outline"
+              className="flex-1 lg:flex-none lg:w-auto bg-[#1a1d24] hover:bg-[#21242c]"
+            >
+              <Rocket className="w-4 h-4 mr-2" />
+              Boost Your Project
+            </Button>
           </div>
         </div>
-      </section>
+
+        {/* Featured Projects - Desktop Only */}
+        <div className="hidden lg:block">
+          <Card className="w-[400px] bg-[#1a1d24]">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Rocket className="w-5 h-5 text-crypto-primary" />
+                  <h2 className="text-lg font-semibold">Featured Projects</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-sm text-muted-foreground hover:text-primary"
+                    onClick={handleBoostProject}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Project
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Boost onOpenBoostDialog={() => setIsBoostDialogOpen(true)} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Main Content */}
-      <main className="container mx-auto py-8 px-4">
+      <main className="container mx-auto px-4">
         <MobileDropdown />
         <Grid />
         {selectedSpotId !== null && isSpotModalOpen && (

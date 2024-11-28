@@ -17,7 +17,7 @@ export function getStartingPrice(): number {
 
 /**
  * Calculates the minimum bid required based on the current price
- * For bids below 1 SOL: adds 0.05 SOL
+ * For bids below 1 SOL: adds 0.005 SOL
  * For bids above 1 SOL: adds 10% of the current price
  * @param currentPrice Current price in SOL
  * @returns Minimum bid amount in SOL
@@ -27,8 +27,8 @@ export function getMinimumBid(currentPrice: number): number {
         // Above 1 SOL: new minimum is current price + 10%
         return currentPrice * 1.1;
     } else {
-        // Below 1 SOL: new minimum is current price + 0.05 SOL
-        return currentPrice + 0.05;
+        // Below 1 SOL: new minimum is current price + 0.005 SOL
+        return currentPrice + 0.005;
     }
 }
 
