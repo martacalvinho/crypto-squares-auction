@@ -36,6 +36,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [previousProjectName, setPreviousProjectName] = useState<string | undefined>();
+  const [previousOwner, setPreviousOwner] = useState<any>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -216,7 +217,7 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
       // First get the current spot data
       const { data: currentSpot, error: spotError } = await supabase
         .from('spots')
-        .select('project_name')
+        .select('project_name, wallet_address')
         .eq('id', spotId)
         .single();
 
@@ -225,9 +226,11 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
         throw spotError;
       }
 
-      // Store the previous project name if it exists
+      // Store the previous project name and owner if it exists
       const previousProject = currentSpot?.project_name;
+      const previousOwner = currentSpot?.wallet_address;
       setPreviousProjectName(previousProject);
+      setPreviousOwner({ wallet_address: previousOwner });
 
       // Insert into spot history if there was a previous project
       if (previousProject) {
@@ -237,6 +240,11 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
             spot_id: spotId,
             previous_project_name: previousProject,
             project_name: projectName,
+            previous_wallet_owner: previousOwner,
+            new_wallet_owner: publicKey.toString(),
+            price_paid: purchaseAmount,
+            is_steal: true,
+            transaction_type: 'steal',
             timestamp: new Date().toISOString()
           });
 

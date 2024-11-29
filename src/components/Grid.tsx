@@ -301,7 +301,8 @@ export const Grid = () => {
           onClose={() => setSelectedSpot(null)}
           isConnected={isConnected}
           currentPrice={spots.find(s => s.id === selectedSpot)?.currentPrice || 0}
-          isEmpty={!spots.find(s => s.id === selectedSpot)?.project}
+          isEmpty={spots.find(s => s.id === selectedSpot)?.project === null}
+          currentOwner={spots.find(s => s.id === selectedSpot)?.currentOwner}
         />
       )}
     </div>
