@@ -29,20 +29,33 @@ export const BoostSlotDetails = ({ slot, isOpen, onClose, solPrice }: BoostSlotD
 
   useEffect(() => {
     const fetchContributors = async () => {
-      const { data, error } = await supabase
+      // First get the initial contribution
+      const { data: slotData, error: slotError } = await supabase
+        .from('boost_slots')
+        .select('initial_contribution')
+        .eq('id', slot.id)
+        .single();
+
+      if (slotError) {
+        console.error('Error fetching slot data:', slotError);
+        return;
+      }
+
+      // Then get additional contributions
+      const { data: contributions, error: contribError } = await supabase
         .from('boost_contributions')
         .select('wallet_address, amount, transaction_signature')
         .eq('slot_id', slot.id)
         .order('created_at', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching contributors:', error);
+      if (contribError) {
+        console.error('Error fetching contributors:', contribError);
         return;
       }
 
-      if (data) {
-        setContributors(data);
-        const total = data.reduce((sum, contribution) => sum + contribution.amount, 0);
+      if (contributions) {
+        setContributors(contributions);
+        const total = contributions.reduce((sum, contribution) => sum + contribution.amount, slotData.initial_contribution);
         setTotalContribution(total);
       }
     };
@@ -68,7 +81,26 @@ export const BoostSlotDetails = ({ slot, isOpen, onClose, solPrice }: BoostSlotD
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <img src={slot.project_logo} alt={slot.project_name} className="w-8 h-8 rounded-full" />
+              <div className="relative w-8 h-8">
+                <img 
+                  src={slot.project_logo} 
+                  alt={slot.project_name} 
+                  className="w-full h-full rounded-full"
+                  onError={(e) => {
+                    console.error('Error loading boost image:', {
+                      src: slot.project_logo,
+                      projectName: slot.project_name,
+                      error: e
+                    });
+                    // Replace with first letter on error
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="fallback hidden w-full h-full bg-crypto-primary/10 rounded-full flex items-center justify-center text-sm font-semibold">
+                  {slot.project_name.charAt(0)}
+                </div>
+              </div>
               <span>{slot.project_name}</span>
             </DialogTitle>
           </DialogHeader>
@@ -126,13 +158,13 @@ export const BoostSlotDetails = ({ slot, isOpen, onClose, solPrice }: BoostSlotD
                     <span className="text-gray-500">
                       {contributor.wallet_address.slice(0, 4)}...{contributor.wallet_address.slice(-4)}
                     </span>
-                    <span>${contributor.amount}</span>
+                    <span>{contributor.amount.toFixed(2)} SOL</span>
                   </div>
                 ))}
               </div>
               <div className="flex justify-between text-sm font-semibold pt-2 border-t">
                 <span>Total</span>
-                <span>${totalContribution}</span>
+                <span>{totalContribution.toFixed(2)} SOL</span>
               </div>
             </div>
 

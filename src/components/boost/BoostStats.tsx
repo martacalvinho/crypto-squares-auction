@@ -29,7 +29,7 @@ export const BoostStats = ({
       </div>
       <div>
         <Rocket className="w-3 h-3 mx-auto mb-1" />
-        ${totalContributions.toFixed(2)}
+        {totalContributions.toFixed(2)} SOL
       </div>
       <div>
         {telegramLink ? (

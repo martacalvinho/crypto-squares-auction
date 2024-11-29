@@ -40,11 +40,26 @@ export const BoostSlotCard = ({ slot, index, formatTimeLeft, onClick }: BoostSlo
             {isPlaceholder ? (
               <Plus className="w-6 h-6 text-crypto-primary/60" />
             ) : (
-              <img
-                src={slot.project_logo}
-                alt={slot.project_name}
-                className="w-full h-full object-cover"
-              />
+              <div className="relative w-full h-full">
+                <img
+                  src={slot.project_logo}
+                  alt={slot.project_name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error('Error loading boost image:', {
+                      src: slot.project_logo,
+                      projectName: slot.project_name,
+                      error: e
+                    });
+                    // Replace with first letter on error
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="fallback hidden w-full h-full bg-crypto-primary/10 flex items-center justify-center text-lg font-semibold">
+                  {slot.project_name.charAt(0)}
+                </div>
+              </div>
             )}
           </div>
           <div className="text-center">

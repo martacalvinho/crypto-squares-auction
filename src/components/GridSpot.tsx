@@ -43,11 +43,26 @@ export const GridSpot = ({ spot, onClick, className = '', style }: SpotProps) =>
         <>
           <div className="flex-1 flex flex-col items-center justify-center">
             {spot.project.logo ? (
-              <img
-                src={spot.project.logo}
-                alt={spot.project.name}
-                className="w-16 h-16 object-contain rounded-lg"
-              />
+              <>
+                <img
+                  src={spot.project.logo}
+                  alt={spot.project.name}
+                  className="w-16 h-16 object-contain rounded-lg"
+                  onError={(e) => {
+                    console.error('Error loading image:', {
+                      src: spot.project.logo,
+                      projectName: spot.project.name,
+                      error: e
+                    });
+                    // Replace with first letter on error
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                  }}
+                />
+                <div className="fallback hidden w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+                  {spot.project.name.charAt(0)}
+                </div>
+              </>
             ) : (
               <div className="w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
                 {spot.project.name.charAt(0)}

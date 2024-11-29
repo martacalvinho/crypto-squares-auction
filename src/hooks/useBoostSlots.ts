@@ -26,6 +26,13 @@ type WaitlistProject = {
   created_at: string;
 };
 
+function calculateBoostDuration(contributionAmount: number) {
+  // Assuming 20 hours per 1 contribution amount
+  const hours = Math.floor(contributionAmount * 20);
+  const minutes = Math.floor((contributionAmount * 20 - hours) * 60);
+  return { hours, minutes };
+}
+
 export const useBoostSlots = () => {
   return useQuery({
     queryKey: ['boost-slots'],
@@ -53,40 +60,49 @@ export const useBoostSlots = () => {
         if (emptySlots.length > 0) {
           console.log('Found empty slots, checking waitlist...');
           
-          const { data: waitlist } = await supabase
+          const { data: waitlistProjects } = await supabase
             .from('boost_waitlist')
             .select('*')
             .order('created_at', { ascending: true });
 
-          console.log('Waitlist projects available:', waitlist?.length || 0);
+          console.log('Waitlist projects available:', waitlistProjects?.length || 0);
 
-          if (waitlist?.length) {
-            for (let i = 0; i < Math.min(emptySlots.length, waitlist.length); i++) {
-              const slot = emptySlots[i];
-              const project = waitlist[i];
+          // Try to promote waitlist projects to empty slots
+          if (waitlistProjects?.length > 0) {
+            console.log('Found empty slots, checking waitlist...');
+            console.log('Waitlist projects available:', waitlistProjects.length);
 
-              console.log(`Promoting "${project.project_name}" to slot ${slot}`);
+            for (const waitlistProject of waitlistProjects) {
+              const nextSlot = emptySlots[0];
+              if (!nextSlot) break;
 
+              console.log(`Promoting "${waitlistProject.project_name}" to slot ${nextSlot}`);
+
+              // Calculate boost duration based on contribution amount
+              const { hours, minutes } = calculateBoostDuration(waitlistProject.contribution_amount);
               const startTime = new Date();
-              const endTime = new Date(startTime.getTime() + (project.contribution_amount * 20 * 60 * 60 * 1000));
+              const endTime = new Date(startTime.getTime() + (hours * 60 + minutes) * 60 * 1000);
 
-              // Create slot
-              const { error: insertError } = await supabase
+              // Ensure URLs are properly formatted and truncated
+              const projectData = {
+                project_name: String(waitlistProject.project_name).slice(0, 255),
+                project_logo: waitlistProject.project_logo ? String(waitlistProject.project_logo).slice(0, 2048) : null,
+                project_link: waitlistProject.project_link ? String(waitlistProject.project_link).slice(0, 2048) : '',
+                telegram_link: waitlistProject.telegram_link ? String(waitlistProject.telegram_link).slice(0, 2048) : null,
+                chart_link: waitlistProject.chart_link ? String(waitlistProject.chart_link).slice(0, 2048) : null,
+                slot_number: nextSlot,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                initial_contribution: Number(waitlistProject.contribution_amount)
+              };
+
+              // Create the slot
+              const { error: createSlotError } = await supabase
                 .from('boost_slots')
-                .insert({
-                  slot_number: slot,
-                  project_name: project.project_name,
-                  project_logo: project.project_logo,
-                  project_link: project.project_link,
-                  telegram_link: project.telegram_link,
-                  chart_link: project.chart_link,
-                  start_time: startTime.toISOString(),
-                  end_time: endTime.toISOString(),
-                  initial_contribution: project.contribution_amount
-                });
+                .insert(projectData);
 
-              if (insertError) {
-                console.error('Failed to create slot:', insertError);
+              if (createSlotError) {
+                console.error('Failed to create slot:', createSlotError);
                 continue;
               }
 
@@ -94,13 +110,14 @@ export const useBoostSlots = () => {
               const { error: deleteError } = await supabase
                 .from('boost_waitlist')
                 .delete()
-                .eq('id', project.id);
+                .eq('id', waitlistProject.id);
 
               if (deleteError) {
                 console.error('Failed to remove from waitlist:', deleteError);
-              } else {
-                console.log(`Successfully promoted ${project.project_name} to slot ${slot}`);
               }
+
+              // Remove used slot
+              emptySlots.shift();
             }
           }
         }
@@ -109,7 +126,7 @@ export const useBoostSlots = () => {
         const { data: finalSlots } = await supabase
           .from('boost_slots')
           .select('*')
-          .order('slot_number', { ascending: true });
+          .order('end_time', { ascending: false }); // Order by end_time descending (most time left first)
 
         const now = new Date();
         const activeSlots = [];
@@ -122,6 +139,13 @@ export const useBoostSlots = () => {
             expiredSlots.push(slot);
             console.log(`Found expired slot ${slot.slot_number} (${slot.project_name})`);
           }
+        });
+
+        // Sort active slots by time remaining (most to least)
+        activeSlots.sort((a, b) => {
+          const aEndTime = new Date(a.end_time).getTime();
+          const bEndTime = new Date(b.end_time).getTime();
+          return bEndTime - aEndTime;
         });
 
         // Delete expired slots sequentially to avoid conflicts

@@ -84,10 +84,34 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.error('Error loading image:', {
+      src: formData.projectLogo,
+      projectName: formData.projectName,
+      error: e
+    });
+    const target = e.target as HTMLImageElement;
+    target.style.display = 'none';
+    target.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+  };
+
   const handleImageUpload = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast({
+        title: "File too large",
+        description: "Please select an image under 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFormData(prev => ({ ...prev, projectLogo: reader.result as string }));
+      const dataUrl = reader.result as string;
+      setFormData(prev => ({
+        ...prev,
+        projectLogo: dataUrl
+      }));
     };
     reader.readAsDataURL(file);
   };
@@ -106,7 +130,7 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
         numValue = 0.96;
       }
       
-      setFormData(prev => ({ ...prev, [id]: numValue }));
+      setFormData(prev => ({ ...prev, totalContributions: numValue }));
     } else {
       setFormData(prev => ({ ...prev, [id]: value }));
     }
@@ -137,23 +161,34 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
     try {
       setIsSubmitting(true);
       
-      if (!formData.projectName || !formData.projectLink) {
+      // Validate required fields
+      if (!formData.projectName.trim()) {
+        throw new Error("Project name is required");
+      }
+
+      // Get the project logo URL - could be a data:image or a regular URL
+      const projectLogoUrl = formData.projectLogo;
+      let formattedProjectLink;
+      let formattedTelegramLink;
+      let formattedChartLink;
+
+      try {
+        formattedProjectLink = formatUrl(formData.projectLink);
+        formattedTelegramLink = formData.telegramLink ? formatUrl(formData.telegramLink) : null;
+        formattedChartLink = formData.chartLink ? formatUrl(formData.chartLink) : null;
+      } catch (error) {
+        console.error('URL validation error:', error);
         toast({
-          title: "Error",
-          description: "Please fill in all required fields",
+          title: "Invalid URL",
+          description: error.message || "Please enter valid URLs",
           variant: "destructive",
         });
         return;
       }
 
-      // Format URLs
-      const formattedProjectLink = formatUrl(formData.projectLink);
-      const formattedTelegramLink = formData.telegramLink ? formatUrl(formData.telegramLink) : '';
-      const formattedChartLink = formData.chartLink ? formatUrl(formData.chartLink) : '';
-
       const submission: ProjectSubmission = {
-        project_name: formData.projectName,
-        project_logo: formData.projectLogo,
+        project_name: formData.projectName.trim(),
+        project_logo: projectLogoUrl,
         project_link: formattedProjectLink,
         telegram_link: formattedTelegramLink || undefined,
         chart_link: formattedChartLink || undefined,
@@ -209,59 +244,60 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="projectLogo">Project Logo</Label>
-            <div
-              className="relative flex h-24 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {formData.projectLogo ? (
-                <img
-                  src={formData.projectLogo}
-                  alt="Project Logo"
-                  className="h-20 w-20 rounded-lg object-contain"
-                />
-              ) : (
-                <div className="text-center p-2">
-                  <ImagePlus className="mx-auto h-8 w-8 text-gray-400" />
-                  <div className="mt-1 text-xs">
-                    Upload image
-                    <div className="text-[10px] text-gray-500">PNG, JPG, GIF up to 10MB</div>
-                  </div>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileSelect}
-                disabled={!!existingSlot}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUrlInput(!showUrlInput)}
-              className="text-xs h-7 mt-1"
-              disabled={!!existingSlot}
-            >
-              Or use URL
-            </Button>
-            {showUrlInput && (
+            <Label htmlFor="projectLogo">Project Logo URL</Label>
+            <div className="space-y-2">
               <Input
+                id="projectLogo"
                 type="url"
-                placeholder="https://example.com/logo.png"
                 value={formData.projectLogo}
-                onChange={(e) => setFormData(prev => ({ ...prev, projectLogo: e.target.value }))}
-                className="text-xs h-7 mt-1"
+                onChange={handleChange}
+                placeholder="e.g., https://example.com/logo.png"
                 disabled={!!existingSlot}
+                className="h-9"
               />
-            )}
+              <div
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                  isDragging ? "border-crypto-primary bg-crypto-primary/10" : "border-crypto-primary/20 hover:border-crypto-primary/40",
+                  "relative"
+                )}
+                onDragEnter={handleDragEnter}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <p className="text-sm text-gray-400">
+                  Drag and drop an image here, or click to select
+                </p>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  {formData.projectLogo ? (
+                    <>
+                      <img
+                        src={formData.projectLogo}
+                        alt={formData.projectName}
+                        className="w-16 h-16 object-contain rounded-lg"
+                        onError={handleImageError}
+                      />
+                      <div className="fallback hidden w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+                        {formData.projectName.charAt(0)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+                      {formData.projectName.charAt(0)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -336,58 +372,58 @@ export function BoostSubmissionForm({ onSuccess, existingSlot }: BoostSubmission
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="projectLogo">Project Logo</Label>
-            <div
-              className="relative flex h-32 items-center justify-center rounded-lg border border-dashed hover:cursor-pointer"
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {formData.projectLogo ? (
-                <img
-                  src={formData.projectLogo}
-                  alt="Project Logo"
-                  className="h-28 w-28 rounded-lg object-contain"
-                />
-              ) : (
-                <div className="text-center">
-                  <ImagePlus className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-2">
-                    Choose file or drag and drop
-                    <div className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</div>
-                  </div>
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileSelect}
+            <Label htmlFor="projectLogo">Project Logo URL</Label>
+            <div className="space-y-2">
+              <Input
+                id="projectLogo"
+                type="url"
+                value={formData.projectLogo}
+                onChange={handleChange}
+                placeholder="e.g., https://example.com/logo.png"
                 disabled={!!existingSlot}
               />
-            </div>
-            <div className="flex items-center space-x-2 mt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowUrlInput(!showUrlInput)}
-                disabled={!!existingSlot}
+              <div
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors",
+                  isDragging ? "border-crypto-primary bg-crypto-primary/10" : "border-crypto-primary/20 hover:border-crypto-primary/40",
+                  "relative"
+                )}
+                onDragEnter={handleDragEnter}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
               >
-                Or use URL
-              </Button>
-              {showUrlInput && (
-                <Input
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  value={formData.projectLogo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, projectLogo: e.target.value }))}
-                  disabled={!!existingSlot}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*"
+                  className="hidden"
                 />
-              )}
+                <p className="text-sm text-gray-400">
+                  Drag and drop an image here, or click to select
+                </p>
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  {formData.projectLogo ? (
+                    <>
+                      <img
+                        src={formData.projectLogo}
+                        alt={formData.projectName}
+                        className="w-16 h-16 object-contain rounded-lg"
+                        onError={handleImageError}
+                      />
+                      <div className="fallback hidden w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+                        {formData.projectName.charAt(0)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-16 h-16 bg-crypto-primary/10 rounded-lg flex items-center justify-center">
+                      {formData.projectName.charAt(0)}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

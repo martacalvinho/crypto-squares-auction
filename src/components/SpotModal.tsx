@@ -298,7 +298,10 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
 
         {isMobile ? (
           // Mobile Form
-          <form onSubmit={handleSubmit} className="space-y-3 p-3">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }} className="space-y-3 p-3">
             <div className="space-y-1.5">
               <Label htmlFor="projectName">Project Name</Label>
               <Input
@@ -397,7 +400,10 @@ export const SpotModal = ({ spotId, onClose, isConnected, currentPrice, isEmpty 
           </form>
         ) : (
           // Desktop Form
-          <form onSubmit={handleSubmit} className="space-y-4 p-6">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }} className="space-y-4 p-6">
             <div className="space-y-2">
               <Label htmlFor="projectName">Project Name</Label>
               <Input

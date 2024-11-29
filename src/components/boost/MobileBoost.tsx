@@ -82,7 +82,20 @@ export const MobileBoost = ({ onOpenBoostDialog, solPrice = 0, slots = [], waitl
                           src={slot.project_logo}
                           alt={slot.project_name}
                           className="w-full h-full object-cover rounded-full border-2 border-crypto-dark group-hover:border-crypto-primary transition-colors"
+                          onError={(e) => {
+                            console.error('Error loading boost image:', {
+                              src: slot.project_logo,
+                              projectName: slot.project_name,
+                              error: e
+                            });
+                            // Replace with first letter on error
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                          }}
                         />
+                        <div className="fallback hidden w-full h-full bg-crypto-primary/10 rounded-full flex items-center justify-center text-sm font-semibold border-2 border-crypto-dark group-hover:border-crypto-primary transition-colors">
+                          {slot.project_name.charAt(0)}
+                        </div>
                       </div>
                       <p className="mt-2 text-xs text-center text-gray-400 group-hover:text-crypto-primary transition-colors truncate max-w-[80px]">
                         {slot.project_name}

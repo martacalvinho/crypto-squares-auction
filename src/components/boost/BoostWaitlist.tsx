@@ -24,11 +24,26 @@ export function BoostWaitlist({ projects }: BoostWaitlistProps) {
                 title={project?.project_name}
               >
                 {project ? (
-                  <img
-                    src={project.project_logo}
-                    alt={project.project_name}
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <img
+                      src={project.project_logo}
+                      alt={project.project_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Error loading waitlist image:', {
+                          src: project.project_logo,
+                          projectName: project.project_name,
+                          error: e
+                        });
+                        // Replace with first letter on error
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="fallback hidden w-full h-full bg-crypto-primary/10 flex items-center justify-center text-sm font-semibold">
+                      {project.project_name.charAt(0)}
+                    </div>
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-crypto-primary/20" />

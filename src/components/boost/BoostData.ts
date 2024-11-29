@@ -35,15 +35,15 @@ export function useBoostData() {
           }
 
           const totalContributions = (contributions || []).reduce(
-            (sum, c) => sum + (c.amount || 0),
-            slot.initial_contribution
+            (sum, c) => sum + (Number(c.amount) || 0),
+            Number(slot.initial_contribution) || 0
           );
 
-          const contributorCount = (contributions || []).length + 1; // +1 for initial contributor
+          const contributorCount = (contributions || []).length + (slot.initial_contribution > 0 ? 1 : 0);
 
           return {
             ...slot,
-            total_contributions: totalContributions,
+            total_contributions: Number(totalContributions.toFixed(6)), // Fix precision issues
             contributor_count: contributorCount
           };
         })
