@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Plus, Clock, Users, Globe, LineChart, MessageCircle } from "lucide-react";
-import { useBoostSlots } from "@/hooks/useBoostSlots";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +15,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { submitAdditionalTime } from "@/components/boost/BoostUtils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { formatSol } from "@/lib/price";
 
 interface FeaturedProject {
   id: number;
@@ -32,7 +34,53 @@ interface FeaturedProject {
 }
 
 export const MobileFeaturedProjects = () => {
-  const { data, isLoading } = useBoostSlots();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Subscribe to featured spots changes
+    const featuredSubscription = supabase
+      .channel('mobile_featured_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spots',
+          filter: 'is_featured=eq.true'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['mobile-featured'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      featuredSubscription.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { data: featuredProjects = [], isLoading } = useQuery({
+    queryKey: ['mobile-featured'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('spots')
+        .select('*')
+        .eq('is_featured', true)
+        .order('updated_at', { ascending: false })
+        .limit(5);  // Only get top 5 featured projects for mobile
+
+      if (error) {
+        console.error('Error fetching featured projects:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity
+  });
+
   const [selectedProject, setSelectedProject] = useState<FeaturedProject | null>(null);
   const [isContributionDialogOpen, setIsContributionDialogOpen] = useState(false);
   const [contribution, setContribution] = useState(1); // Start with minimum 1 SOL
@@ -57,10 +105,6 @@ export const MobileFeaturedProjects = () => {
       console.error('Error formatting time:', error);
       return "Invalid time";
     }
-  };
-
-  const formatSol = (amount: number) => {
-    return amount.toFixed(2);
   };
 
   const handleContributionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,12 +188,10 @@ export const MobileFeaturedProjects = () => {
     );
   }
 
-  const projects = data?.slots || [];
-
   return (
     <div className="space-y-4 px-4 pb-4 -mx-4">
       {Array.from({ length: 5 }).map((_, index) => {
-        const project = projects[index];
+        const project = featuredProjects[index];
         
         if (!project) {
           return (

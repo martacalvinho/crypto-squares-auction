@@ -1,12 +1,9 @@
 import { cn } from "@/lib/utils";
+import { formatSol } from "@/lib/price";
 import { Info, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { SpotHistory } from "./SpotHistory";
 import { useState } from "react";
-
-const formatSol = (value: number) => {
-  return Number(value.toFixed(3)).toString();
-};
 
 interface SpotProps {
   spot: {
