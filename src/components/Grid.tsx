@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SpotModal } from './SpotModal';
 import { GridSpot } from './GridSpot';
@@ -14,8 +14,10 @@ import { Comments } from './Comments';
 import { FeaturedBanner } from './FeaturedBanner';
 import { ActivityFeed } from './ActivityFeed';
 import { ChevronRight, ChevronLeft } from "lucide-react";
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export const Grid = () => {
+  const queryClient = useQueryClient();
   const [selectedSpot, setSelectedSpot] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -55,6 +57,31 @@ export const Grid = () => {
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    // Subscribe to spots table changes
+    const spotsSubscription: RealtimeChannel = supabase
+      .channel('spots_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spots'
+        },
+        (payload) => {
+          console.log('Spots change received:', payload);
+          // Invalidate and refetch spots data
+          queryClient.invalidateQueries({ queryKey: ['spots'] });
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription
+    return () => {
+      spotsSubscription.unsubscribe();
+    };
+  }, [queryClient]);
 
   // Fetch spots from Supabase
   const { data: spots = [], isLoading } = useQuery({
@@ -103,7 +130,9 @@ export const Grid = () => {
         };
       });
     },
-    refetchInterval: 5000
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity // Data won't become stale automatically
   });
 
   // Filter spots based on search term and filters

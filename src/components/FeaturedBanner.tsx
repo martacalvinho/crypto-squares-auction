@@ -1,11 +1,59 @@
 import { BoostSlot } from '@/components/boost/Boost';
 import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FeaturedBannerProps {
-  slots: BoostSlot[];
+  // slots: BoostSlot[];
 }
 
-export const FeaturedBanner = ({ slots }: FeaturedBannerProps) => {
+export const FeaturedBanner = () => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Subscribe to featured spots changes
+    const featuredSubscription = supabase
+      .channel('featured_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spots',
+          filter: 'is_featured=eq.true'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['featured-spots'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      featuredSubscription.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { data: featuredSpots = [], isLoading } = useQuery({
+    queryKey: ['featured-spots'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('spots')
+        .select('*')
+        .eq('is_featured', true)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching featured spots:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity
+  });
+
   const [imageError, setImageError] = useState(false);
   const [debugInfo, setDebugInfo] = useState<{
     originalUrl?: string;
@@ -14,7 +62,7 @@ export const FeaturedBanner = ({ slots }: FeaturedBannerProps) => {
   }>({});
 
   // Get the first featured slot with a project
-  const featuredSlot = slots.find(slot => slot.project_name && slot.project_logo);
+  const featuredSlot = featuredSpots.find(slot => slot.project_name && slot.project_logo);
 
   useEffect(() => {
     if (featuredSlot?.project_logo) {

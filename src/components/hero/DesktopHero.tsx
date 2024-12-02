@@ -19,10 +19,10 @@ export const DesktopHero = ({
       <div className="flex flex-row items-center gap-8">
         <div className="flex-1">
           <h1 className="text-6xl font-bold bg-gradient-to-r from-crypto-primary to-purple-400 bg-clip-text text-transparent">
-            Buy a spot in Solana History
+            The Great Meme Wars of Solana
           </h1>
           <p className="mt-4 text-xl text-gray-400">
-            Get 1 of 500 exclusive spots to showcase your crypto project
+            500 spots. Infinite meme potential. Steal or be stolen. Make history on Solana.
           </p>
           <div className="mt-8 flex flex-row gap-4">
             <Button onClick={onStartBidding} className="w-auto">

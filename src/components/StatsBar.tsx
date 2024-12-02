@@ -1,5 +1,5 @@
 import { Users, TrendingUp, Award, MessageCircle, Rocket, Zap, Sword } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import {
@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useEffect } from "react";
 
 interface StatsBarProps {
   stats?: {
@@ -22,6 +23,52 @@ interface StatsBarProps {
 }
 
 export const StatsBar = ({ stats, variant = 'default' }: StatsBarProps) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    // Subscribe to relevant tables for stats updates
+    const statsSubscription = supabase
+      .channel('stats_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spots'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['stats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['stats'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'boost_stats'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['stats'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      statsSubscription.unsubscribe();
+    };
+  }, [queryClient]);
+
   const { data: dbStats, isLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: async () => {
@@ -51,7 +98,9 @@ export const StatsBar = ({ stats, variant = 'default' }: StatsBarProps) => {
         boostedProjects: boostStats?.total_projects_boosted || 0
       };
     },
-    refetchInterval: 30000 // Refetch every 30 seconds
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity
   });
 
   if (isLoading) {

@@ -11,10 +11,10 @@ export const MobileHero = ({ onStartBidding, onBoostProject }: MobileHeroProps) 
     <div className="lg:hidden container mx-auto px-4 py-6">
       <div className="flex flex-col items-center text-center">
         <h1 className="text-2xl font-bold text-white">
-          Buy a spot in Solana History
+          The Great Meme Wars of Solana
         </h1>
         <p className="mt-2 text-sm text-gray-400">
-          Get 1 of 500 exclusive spots to showcase your crypto project
+          500 spots. Infinite meme potential. Steal or be stolen.
         </p>
         <div className="mt-4 flex flex-row gap-2 w-full max-w-[300px]">
           <Button 

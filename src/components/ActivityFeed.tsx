@@ -3,7 +3,7 @@ import { Bitcoin, TrendingUp, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { useToast } from "./ui/use-toast";
@@ -16,6 +16,39 @@ export const ActivityFeed = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { address, isConnected } = useAccount();
+
+  useEffect(() => {
+    // Subscribe to both spots and spot_history changes
+    const spotChangesSubscription = supabase
+      .channel('activity_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spots'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'spot_history'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      spotChangesSubscription.unsubscribe();
+    };
+  }, [queryClient]);
 
   // Fetch activities (spots with recent changes)
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({
@@ -73,7 +106,9 @@ export const ActivityFeed = () => {
         };
       });
     },
-    refetchInterval: 5000
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity
   });
 
   // Fetch comments
@@ -95,7 +130,9 @@ export const ActivityFeed = () => {
       console.log('Comments:', data);
       return data || [];
     },
-    refetchInterval: 5000
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: Infinity
   });
 
   const handleCommentSubmit = async () => {
